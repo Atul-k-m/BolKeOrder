@@ -13,8 +13,10 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   const [mode, setMode] = useState<AssistantMode>(defaultMode);
   const [status, setStatus] = useState<CallStatus>("inactive");
   const [volumeLevel, setVolumeLevel] = useState(0);
-  const [transcript, setTranscript] = useState("");
-  const [language, setLanguage] = useState<Language>("english");
+
+  // Separated interim (show in UI) vs final (send to engine)
+  const [interimTranscript, setInterimTranscript] = useState(""); // partial words, display only
+  const [finalTranscript, setFinalTranscript] = useState("");     // complete sentences, process these
 
   const recognitionRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -24,14 +26,14 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const statusRef = useRef<CallStatus>("inactive");
   const isSpeakingRef = useRef(false);
+  const finalDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingFinalRef = useRef(""); // accumulate final words between debounce flushes
 
-  // Keep statusRef in sync
   useEffect(() => { statusRef.current = status; }, [status]);
 
   const getVapi = () => {
     if (!vapiInstance && typeof window !== "undefined") {
-      const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "";
-      vapiInstance = new Vapi(publicKey);
+      vapiInstance = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "");
     }
     return vapiInstance;
   };
@@ -39,28 +41,25 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   const startAudioContext = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioContextClass();
-      audioContextRef.current = audioCtx;
-      const analyser = audioCtx.createAnalyser();
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AC();
+      audioContextRef.current = ctx;
+      const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
       analyserRef.current = analyser;
-      const microphone = audioCtx.createMediaStreamSource(stream);
-      microphone.connect(analyser);
-      microphoneRef.current = microphone;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      const updateVolume = () => {
+      const mic = ctx.createMediaStreamSource(stream);
+      mic.connect(analyser);
+      microphoneRef.current = mic;
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
         if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const sum = dataArray.reduce((a, b) => a + b, 0);
-        setVolumeLevel((sum / bufferLength) / 255);
-        animationFrameRef.current = requestAnimationFrame(updateVolume);
+        analyserRef.current.getByteFrequencyData(buf);
+        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+        setVolumeLevel(avg / 255);
+        animationFrameRef.current = requestAnimationFrame(tick);
       };
-      updateVolume();
-    } catch (e) {
-      console.error("Mic access denied:", e);
-    }
+      tick();
+    } catch (e) { console.error("Mic denied:", e); }
   };
 
   const stopAudioContext = () => {
@@ -72,15 +71,12 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current) return;
-    try {
-      recognitionRef.current.start();
-      setStatus("connected");
-    } catch (e) { /* Already started */ }
+    try { recognitionRef.current.start(); setStatus("connected"); } catch (_) {}
   }, []);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
-    try { recognitionRef.current.stop(); } catch (e) {}
+    try { recognitionRef.current.stop(); } catch (_) {}
   }, []);
 
   const speak = useCallback((text: string, onEnd?: () => void) => {
@@ -90,32 +86,31 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     setStatus("speaking");
     stopListening();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-IN";
-    utterance.rate = 0.95;
-    utterance.pitch = 1.05;
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = "en-IN";
+    utt.rate = 0.88;   // Slower, more deliberate — easier to follow
+    utt.pitch = 1.0;
+    utt.volume = 1;
 
-    // Prefer Indian English voice for clear, natural speech
     const voices = synthRef.current.getVoices();
-    const preferred = voices.find(v => v.name.includes("Google UK English Female"))
-      || voices.find(v => v.lang === "en-IN")
-      || voices.find(v => v.lang.startsWith("en"));
-    if (preferred) utterance.voice = preferred;
+    // Prefer natural Indian-English or UK English female voice
+    const preferred =
+      voices.find(v => v.name === "Google UK English Female") ||
+      voices.find(v => v.lang === "en-IN") ||
+      voices.find(v => v.lang.startsWith("en-GB")) ||
+      voices.find(v => v.lang.startsWith("en"));
+    if (preferred) utt.voice = preferred;
 
-    utterance.onend = () => {
+    utt.onend = () => {
       isSpeakingRef.current = false;
       if (onEnd) onEnd();
-      else {
-        startListening();
-        startAudioContext();
-      }
+      else { startListening(); startAudioContext(); }
     };
-    utterance.onerror = () => {
+    utt.onerror = () => {
       isSpeakingRef.current = false;
       if (onEnd) onEnd();
     };
-
-    synthRef.current.speak(utterance);
+    synthRef.current.speak(utt);
   }, [startListening, stopListening]);
 
   const setupRecognition = useCallback(() => {
@@ -128,13 +123,38 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
     recognitionRef.current.lang = "en-IN";
+    recognitionRef.current.maxAlternatives = 1;
 
     recognitionRef.current.onresult = (event: any) => {
-      let t = "";
+      let interim = "";
+      let newFinal = "";
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        t += event.results[i][0].transcript;
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          newFinal += text;
+        } else {
+          interim += text;
+        }
       }
-      setTranscript(t.trim());
+
+      // Always show interim in UI so user sees their words
+      setInterimTranscript(interim);
+
+      // Accumulate final results — debounce before exposing to engine
+      // This prevents processing every half-spoken word
+      if (newFinal.trim()) {
+        pendingFinalRef.current += " " + newFinal.trim();
+
+        // Debounce: wait 1.5s of no-more-final before flushing
+        if (finalDebounceRef.current) clearTimeout(finalDebounceRef.current);
+        finalDebounceRef.current = setTimeout(() => {
+          const flushed = pendingFinalRef.current.trim();
+          pendingFinalRef.current = "";
+          setInterimTranscript(""); // clear interim on flush
+          if (flushed) setFinalTranscript(flushed);
+        }, 1500);
+      }
     };
 
     recognitionRef.current.onerror = (e: any) => {
@@ -142,16 +162,14 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     };
 
     recognitionRef.current.onend = () => {
-      // Auto-restart only if still in connected state
       if (statusRef.current === "connected" && !isSpeakingRef.current) {
-        try { recognitionRef.current.start(); } catch (e) {}
+        try { recognitionRef.current.start(); } catch (_) {}
       }
     };
   }, []);
 
   useEffect(() => {
     setupRecognition();
-
     const vapi = getVapi();
     if (vapi) {
       vapi.on("call-start", () => setStatus("connected"));
@@ -166,16 +184,15 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     setMode(newMode);
   };
 
-  const setLanguageMode = (lang: Language) => setLanguage(lang);
-
   const start = (greetingOverride?: string) => {
     setStatus("connecting");
-    setTranscript("");
+    setFinalTranscript("");
+    setInterimTranscript("");
+    pendingFinalRef.current = "";
     if (mode === "vapi") {
       getVapi()?.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "");
     } else {
       const greeting = greetingOverride || "Welcome to Bolke Order! What would you like to order today?";
-      // Ensure voices are loaded
       const doSpeak = () => speak(greeting);
       if (window.speechSynthesis.getVoices().length === 0) {
         window.speechSynthesis.onvoiceschanged = doSpeak;
@@ -188,20 +205,29 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   const stop = () => {
     synthRef.current?.cancel();
     isSpeakingRef.current = false;
+    if (finalDebounceRef.current) clearTimeout(finalDebounceRef.current);
+    pendingFinalRef.current = "";
     stopListening();
     stopAudioContext();
     setStatus("inactive");
-    setTranscript("");
+    setFinalTranscript("");
+    setInterimTranscript("");
   };
 
-  const updateStatus = (s: CallStatus) => setStatus(s);
-  const clearTranscript = () => setTranscript("");
+  const clearFinalTranscript = () => {
+    setFinalTranscript("");
+    pendingFinalRef.current = "";
+  };
 
   return {
-    mode, status, volumeLevel, transcript, language,
+    mode, status, volumeLevel,
+    interimTranscript,  // show this in the chat bubble as the user is speaking
+    finalTranscript,    // process this in the conversation engine (debounced)
     toggleMode, start, stop, speak,
-    startListening, stopListening: stopListening,
-    updateStatus, clearTranscript, setLanguageMode,
+    startListening, stopListening,
+    updateStatus: (s: CallStatus) => setStatus(s),
+    clearFinalTranscript,
+    setLanguageMode: (_lang: Language) => {},
     startAudioFeedback: startAudioContext,
   };
 }
