@@ -1,0 +1,433 @@
+"use client";
+
+import { useVoiceAssistant, Language } from "@/hooks/useVoiceAssistant";
+import { Phone, PhoneOff, Mic, Loader2, Utensils, Receipt, Settings2, CheckCircle2, Volume2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { findItemsInTranscript, MenuItem } from "@/data/menu";
+
+type CartItemType = MenuItem & { qty: number };
+type Phase = "idle" | "ordering" | "asking_coupon" | "done";
+
+const SILENCE_MS = 5000; // 5s silence before asking for coupon
+
+// ---- Language helpers ----
+const T = {
+  english: {
+    greeting: "Welcome to Bolke Order! What would you like to order today?",
+    added: (name: string, price: number) => `Added ${name} for ₹${price}. Anything else?`,
+    askCoupon: "Great! Do you have a coupon code you'd like to apply?",
+    noItems: "I didn't catch that. Could you please tell me what you'd like to order?",
+    confirmedCoupon: (disc: number, total: number) => `Coupon applied! You saved ₹${disc}. Your final total is ₹${total}. Order placed. Thank you!`,
+    noCoupon: (total: number) => `Perfect. Your total is ₹${total}. Order placed. Thank you!`,
+    switchedHindi: "Theek hai, ab main Hindi mein bolungi.",
+    switchedEnglish: "Sure, switching back to English.",
+  },
+  hindi: {
+    greeting: "Bolke Order mein aapka swagat hai! Aaj aap kya order karna chahenge?",
+    added: (name: string, price: number) => `${name} add kar diya, ₹${price} ka. Aur kuch chahiye?`,
+    askCoupon: "Theek hai! Kya aapke paas koi coupon code hai?",
+    noItems: "Mujhe samajh nahi aaya. Aap kya order karna chahte hain?",
+    confirmedCoupon: (disc: number, total: number) => `Coupon laga diya! Aapne ₹${disc} bachaye. Total ₹${total} hai. Order place ho gaya. Shukriya!`,
+    noCoupon: (total: number) => `Theek hai. Total ₹${total} hai. Order place ho gaya. Shukriya!`,
+    switchedHindi: "Theek hai, ab main Hindi mein bolungi.",
+    switchedEnglish: "Sure, switching back to English.",
+  },
+};
+
+export default function Home() {
+  const {
+    mode, status, volumeLevel, transcript,
+    toggleMode, start, stop, speak,
+    startListening, startAudioFeedback,
+    updateStatus, clearTranscript, setLanguageMode, language,
+  } = useVoiceAssistant("free");
+
+  const [cartItems, setCartItems] = useState<CartItemType[]>([]);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [lang, setLang] = useState<Language>("english");
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [aiMessage, setAiMessage] = useState(""); // What AI last said
+
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTranscript = useRef("");
+  const processingRef = useRef(false); // prevent re-entrancy
+  const phaseRef = useRef<Phase>("idle");
+  const langRef = useRef<Language>("english");
+  const cartRef = useRef<CartItemType[]>([]);
+
+  // Keep refs in sync
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
+  useEffect(() => { cartRef.current = cartItems; }, [cartItems]);
+
+  const t = useCallback(() => T[langRef.current], []);
+
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (cartRef.current.length === 0) return;
+    silenceTimerRef.current = setTimeout(() => {
+      if (phaseRef.current !== "ordering" || processingRef.current) return;
+      processingRef.current = true;
+      const msg = T[langRef.current].askCoupon;
+      setPhase("asking_coupon");
+      setAiMessage(msg);
+      clearTranscript();
+      speak(msg, () => {
+        processingRef.current = false;
+        startListening();
+        startAudioFeedback();
+      });
+    }, SILENCE_MS);
+  }, [clearTranscript, speak, startListening, startAudioFeedback]);
+
+  // Reset everything on stop
+  useEffect(() => {
+    if (status === "inactive") {
+      setPhase("idle");
+      setCartItems([]);
+      setCouponApplied(false);
+      setAiMessage("");
+    }
+  }, [status]);
+
+  // Main transcript listener
+  useEffect(() => {
+    if (status !== "connected" || mode !== "free" || processingRef.current) return;
+    if (transcript === lastTranscript.current || !transcript) return;
+    lastTranscript.current = transcript;
+
+    const lower = transcript.toLowerCase();
+
+    // ---- Language Switch Detection ----
+    if (lower.includes("hindi") || lower.includes("hindi mein") || lower.includes("hindi me bolo")) {
+      if (lang !== "hindi") {
+        setLang("hindi");
+        setLanguageMode("hindi");
+        clearTranscript();
+        const msg = T.hindi.switchedHindi;
+        setAiMessage(msg);
+        speak(msg, () => { startListening(); startAudioFeedback(); });
+      }
+      return;
+    }
+    if ((lower.includes("english") || lower.includes("english mein bolo")) && lang !== "english") {
+      setLang("english");
+      setLanguageMode("english");
+      clearTranscript();
+      const msg = T.english.switchedEnglish;
+      setAiMessage(msg);
+      speak(msg, () => { startListening(); startAudioFeedback(); });
+      return;
+    }
+
+    // ---- Ordering Phase ----
+    if (phaseRef.current === "ordering") {
+      // Find items mentioned in transcript (ONE at a time — pick the FIRST new one)
+      const foundItems = findItemsInTranscript(transcript);
+      const newItem = foundItems.find(item => !cartRef.current.find(c => c.id === item.id));
+
+      if (newItem) {
+        processingRef.current = true;
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
+        const updated = [...cartRef.current, { ...newItem, qty: 1 }];
+        setCartItems(updated);
+        clearTranscript();
+
+        const msg = T[langRef.current].added(newItem.name, newItem.price);
+        setAiMessage(msg);
+        speak(msg, () => {
+          processingRef.current = false;
+          startListening();
+          startAudioFeedback();
+          resetSilenceTimer();
+        });
+        return;
+      }
+
+      // Explicit checkout phrase
+      if (lower.includes("that's it") || lower.includes("thats it") || lower.includes("no more") || lower.includes("bas") || lower.includes("done")) {
+        processingRef.current = true;
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        clearTranscript();
+        const msg = T[langRef.current].askCoupon;
+        setPhase("asking_coupon");
+        setAiMessage(msg);
+        speak(msg, () => {
+          processingRef.current = false;
+          startListening();
+          startAudioFeedback();
+        });
+        return;
+      }
+
+      // Heard something but couldn't map it — restart silence timer
+      resetSilenceTimer();
+    }
+
+    // ---- Coupon Phase ----
+    if (phaseRef.current === "asking_coupon") {
+      const wantsYes = lower.includes("yes") || lower.includes("haan") || lower.includes("apply") || lower.includes("sure") || lower.includes("ok");
+      const wantsNo = lower.includes("no") || lower.includes("nahi") || lower.includes("nope") || lower.includes("skip");
+
+      if (wantsYes || wantsNo) {
+        processingRef.current = true;
+        clearTranscript();
+        const sub = cartRef.current.reduce((s, i) => s + i.price * i.qty, 0);
+        const taxes = 45;
+        const disc = wantsYes ? Math.floor(sub * 0.10) : 0;
+        const total = sub + taxes - disc;
+
+        setCouponApplied(wantsYes);
+        setPhase("done");
+
+        const msg = wantsYes
+          ? T[langRef.current].confirmedCoupon(disc, total)
+          : T[langRef.current].noCoupon(total);
+
+        setAiMessage(msg);
+        speak(msg, () => {
+          processingRef.current = false;
+          updateStatus("ordered");
+        });
+      }
+    }
+  }, [transcript, status, mode, lang, speak, clearTranscript, startListening, startAudioFeedback, resetSilenceTimer, updateStatus, setLanguageMode]);
+
+  const handleToggleCall = () => {
+    if (status === "inactive" || status === "ordered") {
+      setCartItems([]);
+      setPhase("ordering");
+      setCouponApplied(false);
+      setAiMessage("");
+      clearTranscript();
+      start();
+    } else {
+      stop();
+    }
+  };
+
+  const subtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const taxes = cartItems.length > 0 ? 45 : 0;
+  const discount = couponApplied ? Math.floor(subtotal * 0.10) : 0;
+  const total = subtotal + taxes - discount;
+
+  return (
+    <div className="min-h-screen bg-slate text-peach p-6 lg:p-12 flex flex-col items-center justify-center overflow-hidden relative">
+      {/* Ambient blobs */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-magenta/10 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-sage/10 rounded-full blur-[150px] pointer-events-none" />
+
+      {/* Header bar */}
+      <motion.div
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="absolute top-6 right-6 z-50 flex items-center gap-3 backdrop-blur-md bg-white/5 border border-white/10 px-4 py-2 rounded-full"
+      >
+        <span className="text-sm font-medium text-peach/80 flex items-center gap-2"><Settings2 size={14} /> Mode</span>
+        <div className="flex bg-slate/80 rounded-full p-1 border border-white/5">
+          {(["vapi", "free"] as const).map(m => (
+            <button key={m} onClick={() => toggleMode(m)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${mode === m ? (m === "vapi" ? "bg-magenta text-white" : "bg-sage text-white") : "text-peach/50 hover:text-white"}`}>
+              {m === "vapi" ? "Vapi (Pro)" : "Native (Free)"}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
+      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 relative z-10">
+
+        {/* ── BILL CARD ── */}
+        <motion.div
+          initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="w-full backdrop-blur-2xl bg-mauve/10 border border-white/10 rounded-3xl shadow-2xl p-8 flex flex-col gap-6 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none"><Utensils size={120} /></div>
+
+          {/* Restaurant header */}
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-magenta to-rose-600 flex items-center justify-center shadow-lg shadow-magenta/20">
+              <Receipt className="text-white" size={22} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">Your Order</h2>
+              <p className="text-xs text-peach/50 uppercase tracking-widest mt-0.5">Order #88392 • Meghana Foods</p>
+            </div>
+          </div>
+
+          {/* Cart items */}
+          <div className="flex-1 min-h-[160px] flex flex-col gap-3">
+            {cartItems.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-peach/30 italic text-sm">
+                {status === "inactive" ? "Your cart is empty. Tap the mic to start." : "Say a dish name to add it to your order…"}
+              </div>
+            ) : (
+              <AnimatePresence>
+                {cartItems.map(item => (
+                  <motion.div key={item.id}
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-between items-center bg-white/5 rounded-xl px-4 py-3 border border-white/5"
+                  >
+                    <span className="font-semibold text-white">{item.name}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs bg-black/30 text-peach/60 px-2 py-0.5 rounded">x{item.qty}</span>
+                      <span className="font-bold text-white">₹{item.price * item.qty}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* Totals */}
+          <div className="bg-black/20 rounded-2xl p-5 border border-white/5 space-y-2">
+            <Row label="Subtotal" value={`₹${subtotal}`} />
+            {couponApplied && <Row label="Coupon (10% off)" value={`−₹${discount}`} valueClass="text-green-400" />}
+            <Row label="Taxes & Fees" value={`₹${taxes}`} />
+            <div className="border-t border-white/10 pt-3 flex justify-between text-xl font-bold">
+              <span className="text-white">Total</span>
+              <span className="text-sage">₹{total}</span>
+            </div>
+          </div>
+
+          {/* Status banner */}
+          <AnimatePresence mode="wait">
+            {status === "ordered" ? (
+              <Banner key="done" icon={<CheckCircle2 size={16} />} text="Order Placed Successfully!" color="sage" />
+            ) : status === "inactive" ? (
+              <Banner key="idle" text="Tap the microphone to begin ordering" color="magenta" />
+            ) : (
+              <Banner key="active"
+                text={
+                  status === "speaking" ? "AI is speaking…" :
+                  phase === "asking_coupon" ? "Say Yes or No for the coupon" :
+                  "Listening — say a dish to add it"
+                }
+                color="peach"
+                loader={status === "connecting"}
+              />
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* ── VOICE CARD ── */}
+        <motion.div
+          initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="w-full flex flex-col items-center justify-between p-8 backdrop-blur-2xl bg-mauve/10 border border-white/10 rounded-3xl shadow-2xl"
+        >
+          {/* AI message bubble */}
+          <div className="w-full min-h-[56px] flex items-start justify-center">
+            <AnimatePresence mode="wait">
+              {aiMessage ? (
+                <motion.div key={aiMessage}
+                  initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  className="flex items-start gap-2 bg-black/40 backdrop-blur rounded-2xl px-4 py-3 border border-white/10 max-w-xs"
+                >
+                  <Volume2 size={16} className="text-sage mt-0.5 shrink-0" />
+                  <p className="text-sm text-white leading-relaxed">{aiMessage}</p>
+                </motion.div>
+              ) : (
+                <motion.p key="idle-msg" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="text-sm text-peach/40 italic text-center">
+                  {status === "inactive" ? "Ready to take your order" : ""}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Live transcript */}
+          <div className="w-full min-h-[40px] flex justify-center my-4">
+            <AnimatePresence>
+              {mode === "free" && status === "connected" && transcript && (
+                <motion.div key="transcript"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="text-center text-white/60 italic text-sm px-4"
+                >
+                  "{transcript}"
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Glowing Orb */}
+          <div className="relative flex items-center justify-center h-44 w-44 my-4">
+            <AnimatePresence>
+              {(status === "connected" || status === "speaking") && (
+                <>
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1 + volumeLevel * 1.5, opacity: 0.35 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    className={`absolute inset-0 rounded-full blur-2xl z-0 ${mode === "vapi" ? "bg-magenta" : "bg-sage"}`}
+                  />
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    className="absolute inset-[-12px] border border-dashed border-white/15 rounded-full z-10" />
+                </>
+              )}
+            </AnimatePresence>
+
+            <motion.button
+              whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+              onClick={handleToggleCall}
+              className={`relative z-20 w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-colors duration-500 ${
+                status === "inactive" || status === "ordered" ? "bg-slate border border-white/10 hover:bg-slate/70"
+                : status === "connecting" ? "bg-magenta/40 border border-magenta animate-pulse"
+                : status === "speaking" ? "bg-blue-600"
+                : mode === "vapi" ? "bg-gradient-to-br from-magenta to-rose-600"
+                : "bg-gradient-to-br from-sage to-emerald-600"
+              }`}
+            >
+              {status === "connecting" ? <Loader2 className="animate-spin text-white" size={34} />
+                : status === "connected" ? <PhoneOff className="text-white" size={34} />
+                : status === "speaking" ? <Phone className="text-white" size={34} />
+                : <Mic className="text-peach" size={34} />}
+            </motion.button>
+          </div>
+
+          <div className="text-center mt-2">
+            <h3 className="text-xl font-bold text-white">BolKeOrder AI</h3>
+            <p className="text-xs text-peach/50 mt-1 font-medium">
+              {status === "inactive" || status === "ordered" ? "Tap to start a new order"
+                : status === "speaking" ? "AI is responding…"
+                : status === "connecting" ? "Starting up…"
+                : phase === "asking_coupon" ? "Say yes or no"
+                : "Listening — pause 5s to checkout"}
+            </p>
+            <p className="text-xs text-peach/30 mt-2 italic">
+              Say "Hindi mein bolo" to switch language
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// ── Small helpers ──
+function Row({ label, value, valueClass = "text-peach/70" }: { label: string; value: string; valueClass?: string }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-peach/60">{label}</span>
+      <span className={valueClass}>{value}</span>
+    </div>
+  );
+}
+
+function Banner({ text, icon, color, loader }: { text: string; icon?: React.ReactNode; color: string; loader?: boolean }) {
+  const colors: Record<string, string> = {
+    sage: "bg-sage/20 text-sage border-sage/30",
+    magenta: "bg-magenta/10 text-magenta border-magenta/20",
+    peach: "bg-peach/10 text-peach/80 border-peach/20",
+  };
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className={`w-full ${colors[color]} border rounded-xl p-4 text-center text-sm font-medium flex items-center justify-center gap-2`}>
+      {loader && <Loader2 size={14} className="animate-spin" />}
+      {icon}
+      {text}
+    </motion.div>
+  );
+}
