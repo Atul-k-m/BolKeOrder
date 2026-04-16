@@ -53,6 +53,7 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   const safeStartRecognition = useCallback(() => {
     if (!recognitionRef.current) return;
     if (isRecognitionActiveRef.current) return; // already running
+    if (statusRef.current !== "connected") return; // MUST be connected to start!
     try {
       recognitionRef.current.start();
     } catch (e: any) {
@@ -202,23 +203,38 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
 
       utt.onend = () => {
         isSpeakingRef.current = false;
-        if (onEnd) {
-          onEnd();
-        } else {
-          // Give browser 600ms to fully release the audio output device
-          // before we ask for mic input — fixes the silent-kill loop
-          setTimeout(() => {
+        setTimeout(() => {
+          if (statusRef.current === "speaking") {
+            updateStatus("connected");
+          }
+          if (onEnd) {
+            onEnd();
+          } else {
+            // Give browser 600ms to fully release the audio output device
+            // before we ask for mic input — fixes the silent-kill loop
             if (statusRef.current === "connected") {
               safeStartRecognition();
             }
-          }, 600);
-        }
+          }
+        }, 600);
       };
 
       utt.onerror = (e) => {
         console.warn("TTS error:", e.error);
         isSpeakingRef.current = false;
-        if (onEnd) onEnd();
+        if (e.error === "canceled") return;
+        setTimeout(() => {
+          if (statusRef.current === "speaking") {
+            updateStatus("connected");
+          }
+          if (onEnd) {
+            onEnd();
+          } else {
+            if (statusRef.current === "connected") {
+              safeStartRecognition();
+            }
+          }
+        }, 600);
       };
 
       synthRef.current.speak(utt);
