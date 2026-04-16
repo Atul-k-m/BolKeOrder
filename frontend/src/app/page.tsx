@@ -5,37 +5,32 @@ import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import {
-  Phone,
-  Brain,
-  CheckCircle2,
-  ArrowRight,
-  Star,
-  Mic,
-  Code2,
-  Mail,
-  Sparkles,
+  Phone, Brain, CheckCircle2, ArrowRight,
+  Star, Mic, Code2, Mail, Sparkles,
 } from "lucide-react";
 
-// ── Animated Waveform (Rangoli-style colours) ──────────────
+/* ═══════════════════════════
+   SUB-COMPONENTS
+═══════════════════════════ */
+
+/** Waveform — muted heritage palette */
 function Waveform() {
-  const colours = [
-    "linear-gradient(to top, #C0392B, #E8631A)",
-    "linear-gradient(to top, #E8631A, #F5A623)",
-    "linear-gradient(to top, #D4AF37, #F5A623)",
-    "linear-gradient(to top, #4A7C59, #1A7A6E)",
-    "linear-gradient(to top, #1A7A6E, #3D3B8E)",
-    "rgba(212,175,55,0.2)",
+  const bars = [
+    "#9B2E0B", "#C9A84C", "#4A7C59", "#1A7A6E",
+    "#3D3B8E", "rgba(201,168,76,0.2)", "#9B2E0B",
+    "#C9A84C", "#4A7C59", "#1A7A6E", "#3D3B8E", "#9B2E0B",
   ];
   return (
-    <div className="flex items-end justify-center gap-1.5 h-16">
-      {Array.from({ length: 12 }).map((_, i) => (
+    <div className="flex items-end justify-center gap-1.5 h-14">
+      {bars.map((bg, i) => (
         <div
           key={i}
-          className="wave-bar w-2 rounded-sm animate-wave"
+          className="wave-bar w-1.5"
           style={{
             animationDelay: `${i * 0.1}s`,
-            height: `${20 + Math.sin((i / 11) * Math.PI) * 40}px`,
-            background: colours[i % colours.length],
+            height: `${18 + Math.sin((i / 11) * Math.PI) * 36}px`,
+            background: bg,
+            animation: "wave 1.5s ease-in-out infinite",
           }}
         />
       ))}
@@ -43,407 +38,258 @@ function Waveform() {
   );
 }
 
-// ── Corner Flower ornament ─────────────────────────────────
-function CornerFlower({ className = "" }: { className?: string }) {
+/** Thin gold corner ornaments */
+function Corners() {
   return (
-    <span
-      className={`absolute text-bko-gold opacity-60 select-none pointer-events-none ${className}`}
-      style={{ fontSize: "1.4rem", lineHeight: 1 }}
-    >
-      ✿
-    </span>
+    <>
+      <span className="ornament" style={{ top: 8, left: 10 }}>✿</span>
+      <span className="ornament" style={{ top: 8, right: 10 }}>✿</span>
+    </>
   );
 }
 
-// ── Traditional section divider ────────────────────────────
-function Divider() {
+/** Section gold divider */
+function GoldDivider() {
   return (
-    <div className="flex items-center gap-4 my-2 px-2">
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent to-bko-gold/50" />
-      <span className="text-bko-gold text-xl opacity-80">✦</span>
-      <span className="text-bko-saffron text-lg opacity-60">❁</span>
-      <span className="text-bko-gold text-xl opacity-80">✦</span>
-      <div className="flex-1 h-px bg-gradient-to-l from-transparent to-bko-gold/50" />
+    <div className="flex items-center gap-3 my-2">
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[rgba(201,168,76,0.45)]" />
+      <span style={{ color: "#C9A84C", opacity: 0.7, fontSize: "1rem" }}>✦</span>
+      <span style={{ color: "#A87B2A", opacity: 0.55, fontSize: "0.85rem" }}>❁</span>
+      <span style={{ color: "#C9A84C", opacity: 0.7, fontSize: "1rem" }}>✦</span>
+      <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[rgba(201,168,76,0.45)]" />
     </div>
   );
 }
 
-// ── Data ──────────────────────────────────────────────────
-const PLATFORMS = [
-  {
-    name: "Swiggy",
-    emoji: "🛵",
-    tagline: "Food Delivery",
-    color: "#E8631A",
-    border: "border-bko-saffron/40",
-    glow: "shadow-saffron",
-  },
-  {
-    name: "Zomato",
-    emoji: "🍽️",
-    tagline: "Restaurant Orders",
-    color: "#C0392B",
-    border: "border-bko-crimson/40",
-    glow: "shadow-crimson",
-  },
-  {
-    name: "Zepto",
-    emoji: "⚡",
-    tagline: "10-Min Grocery",
-    color: "#3D3B8E",
-    border: "border-bko-indigo/40",
-    glow: "shadow-gold",
-  },
-  {
-    name: "BigBasket",
-    emoji: "🧺",
-    tagline: "Grocery & More",
-    color: "#4A7C59",
-    border: "border-bko-leaf/40",
-    glow: "shadow-gold",
-  },
-];
-
-const TESTIMONIALS = [
-  {
-    name: "Ramaiah K.",
-    age: 72,
-    city: "Bengaluru",
-    lang: "ಕನ್ನಡ",
-    avatar: "ರ",
-    review:
-      "Pehle smartphone use karna bahut mushkil tha. Ab bas bolta hoon aur order ho jaata hai!",
-    color: "from-bko-saffron/20 to-bko-saffron/5",
-  },
-  {
-    name: "Savitri D.",
-    age: 68,
-    city: "Chennai",
-    lang: "தமிழ்",
-    avatar: "ச",
-    review:
-      "Naan phone-il pesivittu biryani vanguvom. Romba easy-a irukku! Vandhanam!",
-    color: "from-bko-crimson/20 to-bko-crimson/5",
-  },
-  {
-    name: "Murugan S.",
-    age: 74,
-    city: "Mysuru",
-    lang: "English",
-    avatar: "M",
-    review:
-      "My grandson set it up. Now I just call and food comes home. God bless this idea!",
-    color: "from-bko-peacock/20 to-bko-peacock/5",
-  },
-];
+/* ═══════════════════════════
+   DATA
+═══════════════════════════ */
 
 const STEPS = [
   {
     icon: Phone,
-    step: "01",
-    title: "बोलो",
-    subtitle: "User Calls",
+    num: "01",
+    hi: "बोलो",
+    en: "User Calls",
     desc: "Elderly user calls a regular phone number — no app, no smartphone, no typing needed.",
-    accent: "text-bko-saffron",
-    border: "border-bko-saffron/40",
-    bg: "from-bko-saffron/15 to-transparent",
+    cardCls: "card-step card-step-1",
+    accentColor: "#C9A84C",
+    borderTop: "2px solid rgba(201,168,76,0.55)",
   },
   {
     icon: Brain,
-    step: "02",
-    title: "समझो",
-    subtitle: "AI Understands",
+    num: "02",
+    hi: "समझो",
+    en: "AI Understands",
     desc: "Vapi + GPT-4o parses vernacular speech, extracts full order intent in Hindi, Kannada, Tamil, Telugu.",
-    accent: "text-bko-turmeric",
-    border: "border-bko-turmeric/40",
-    bg: "from-bko-turmeric/15 to-transparent",
+    cardCls: "card-step card-step-2",
+    accentColor: "#7EAF88",
+    borderTop: "2px solid rgba(126,175,136,0.50)",
   },
   {
     icon: CheckCircle2,
-    step: "03",
-    title: "मंगाओ",
-    subtitle: "Order Placed",
+    num: "03",
+    hi: "मंगाओ",
+    en: "Order Placed",
     desc: "Cart confirmed, platform API called, confirmation SMS sent — all in under 30 seconds.",
-    accent: "text-bko-peacock",
-    border: "border-bko-peacock/40",
-    bg: "from-bko-peacock/15 to-transparent",
+    cardCls: "card-step card-step-3",
+    accentColor: "#6A92B8",
+    borderTop: "2px solid rgba(106,146,184,0.50)",
+  },
+];
+
+const PLATFORMS = [
+  { name: "Swiggy",     emoji: "🛵", tagline: "Food Delivery",    dot: "#D45A1A" },
+  { name: "Zomato",     emoji: "🍽️", tagline: "Restaurant Orders", dot: "#B5203A" },
+  { name: "Zepto",      emoji: "⚡", tagline: "10-Min Grocery",    dot: "#6B5FCC" },
+  { name: "BigBasket",  emoji: "🧺", tagline: "Grocery & More",   dot: "#3D7A4A" },
+];
+
+const TESTIMONIALS = [
+  {
+    name: "Ramaiah K.", age: 72, city: "Bengaluru", lang: "ಕನ್ನಡ", avatar: "ರ",
+    review: "Pehle smartphone use karna bahut mushkil tha. Ab bas bolta hoon aur order ho jaata hai!",
+  },
+  {
+    name: "Savitri D.", age: 68, city: "Chennai", lang: "தமிழ்", avatar: "ச",
+    review: "Naan phone-il pesivittu biryani vanguvom. Romba easy-a irukku! Vandhanam!",
+  },
+  {
+    name: "Murugan S.", age: 74, city: "Mysuru", lang: "English", avatar: "M",
+    review: "My grandson set it up. Now I just call and food comes home. God bless this idea!",
   },
 ];
 
 const TECH = ["Next.js 14", "FastAPI", "GraphQL", "Qdrant", "Vapi.ai", "GPT-4o"];
 
-// ── Main Component ─────────────────────────────────────────
+/* ═══════════════════════════
+   PAGE
+═══════════════════════════ */
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 60]);
 
   return (
-    <div className="min-h-screen bg-bko-bg text-bko-text overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden" style={{ background: "#130B05", color: "#F2E8D5" }}>
 
       {/* ══════════════════════════════════════
           NAVBAR
       ══════════════════════════════════════ */}
       <header className="sticky top-0 z-50 navbar-strip">
-        {/* Top accent strip */}
-        <div className="h-1 w-full bg-festival-gradient" />
+        {/* 3px saffron accent at very top */}
+        <div style={{ height: 3, background: "linear-gradient(90deg,#9B2E0B,#D45A1A,#C9A84C,#D45A1A,#9B2E0B)" }} />
 
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-10 h-10 rounded-sm overflow-hidden border border-bko-gold/40 shadow-gold">
-              <Image
-                src="/images/logo_bko.png"
-                alt="BolKeOrder Logo"
-                fill
-                className="object-cover"
-              />
+          <Link href="/" className="flex items-center gap-3">
+            <div style={{
+              width: 40, height: 40, border: "1px solid rgba(201,168,76,0.5)",
+              overflow: "hidden", position: "relative", flexShrink: 0,
+            }}>
+              <Image src="/images/logo_bko.png" alt="BolKeOrder" fill className="object-cover" />
             </div>
             <div>
-              <span
-                className="font-rosehot text-xl text-bko-gold block leading-tight"
-                style={{ fontFamily: "Rosehot, serif" }}
-              >
+              <span style={{ fontFamily: "Rosehot,serif", fontSize: "1.25rem", color: "#C9A84C", display: "block", lineHeight: 1.1 }}>
                 BolKeOrder
               </span>
-              <span className="text-[0.6rem] text-bko-muted tracking-widest uppercase">
+              <span style={{ fontFamily: "Quivert,sans-serif", fontSize: "0.58rem", color: "#8C7A5E", letterSpacing: "0.12em", textTransform: "uppercase" }}>
                 Voice Commerce · भारत
               </span>
             </div>
           </Link>
 
-          {/* Nav links */}
-          <nav className="hidden md:flex items-center gap-7 font-quivert text-sm text-bko-muted">
-            {[
-              { href: "#how", label: "How it Works" },
-              { href: "#platforms", label: "Platforms" },
-              { href: "#stories", label: "Stories" },
-            ].map(({ href, label }) => (
-              <a
-                key={href}
-                href={href}
-                className="relative hover:text-bko-turmeric transition-colors after:absolute after:bottom-0 after:left-0 after:w-0 hover:after:w-full after:h-px after:bg-bko-gold after:transition-all"
-              >
-                {label}
-              </a>
+          <nav className="hidden md:flex items-center gap-7" style={{ fontFamily: "Quivert,sans-serif", fontSize: "0.875rem", color: "#8C7A5E" }}>
+            {[["#how","How it Works"],["#platforms","Platforms"],["#stories","Stories"]].map(([h,l]) => (
+              <a key={h} href={h} style={{ transition: "color 0.2s" }}
+                onMouseOver={e => (e.currentTarget.style.color="#C9A84C")}
+                onMouseOut={e  => (e.currentTarget.style.color="#8C7A5E")}
+              >{l}</a>
             ))}
           </nav>
 
-          {/* CTAs */}
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-sm text-bko-muted hover:text-bko-turmeric transition-colors hidden sm:block"
-            >
+            <Link href="/dashboard" style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.875rem", color:"#8C7A5E" }}
+              className="hidden sm:block hover:text-[#C9A84C] transition-colors">
               Sign in
             </Link>
-            <Link href="/demo" className="btn-primary text-sm py-2 px-5">
-              <Mic size={14} />
-              Free Demo
+            <Link href="/demo" className="btn-primary" style={{ fontSize:"0.875rem", padding:"0.5rem 1.1rem" }}>
+              <Mic size={14} />Free Demo
             </Link>
           </div>
         </div>
       </header>
 
       {/* ══════════════════════════════════════
-          HERO
+          HERO — deep espresso, orange accent only on "order"
       ══════════════════════════════════════ */}
-      <section
-        ref={heroRef}
-        className="relative min-h-[92vh] flex items-center justify-center overflow-hidden"
-      >
-        {/* Full-bleed hero image */}
-        <motion.div
-          style={{ y: heroY }}
-          className="absolute inset-0 z-0"
-        >
-          <Image
-            src="/images/hero_banner.png"
-            alt="Indian traditional decorative banner"
-            fill
-            priority
-            className="object-cover object-center opacity-25"
-          />
-          {/* Gradient overlay to keep text readable */}
-          <div className="absolute inset-0 bg-gradient-to-b from-bko-bg/70 via-bko-bg/60 to-bko-bg" />
+      <section ref={heroRef} style={{ position:"relative", minHeight:"92vh", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+
+        {/* Mandala/paisley hero image — low opacity, no orange tint */}
+        <motion.div style={{ y: heroY, position:"absolute", inset:0, zIndex:0 }}>
+          <Image src="/images/hero_banner.png" alt="Indian traditional pattern" fill priority
+            style={{ objectFit:"cover", objectPosition:"center", opacity: 0.18 }} />
+          {/* Bottom fade to espresso */}
+          <div style={{ position:"absolute", inset:0, background:"linear-gradient(to bottom, rgba(19,11,5,0.45) 0%, rgba(19,11,5,0.5) 60%, #130B05 100%)" }} />
         </motion.div>
 
-        {/* Decorative radial glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-bko-saffron/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/3 w-[400px] h-[400px] bg-bko-crimson/5 rounded-full blur-[80px] pointer-events-none" />
+        {/* Subtle warm radial — NOT orange, just warmth */}
+        <div style={{ position:"absolute", top:"35%", left:"50%", transform:"translate(-50%,-50%)", width:600, height:600, borderRadius:"50%", background:"radial-gradient(ellipse, rgba(100,60,20,0.10) 0%, transparent 70%)", pointerEvents:"none" }} />
 
-        {/* Hero content */}
-        <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
+        <div style={{ position:"relative", zIndex:10, maxWidth:900, margin:"0 auto", padding:"0 1.5rem", textAlign:"center" }}>
 
-          {/* Eyebrow badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex justify-center mb-8"
-          >
+          {/* Eyebrow */}
+          <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }} className="flex justify-center mb-8">
             <span className="badge-traditional">
-              <Sparkles size={12} className="text-bko-turmeric" />
-              Voice Commerce for Bharat · Powered by Vapi + GPT-4o
-              <Sparkles size={12} className="text-bko-turmeric" />
+              <Sparkles size={11} />
+              Voice Commerce for Bharat · Vapi + GPT-4o
+              <Sparkles size={11} />
             </span>
           </motion.div>
 
-          {/* Main headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            style={{ fontFamily: "Rosehot, serif" }}
-            className="text-6xl md:text-8xl leading-tight mb-4"
-          >
-            <span className="text-bko-ivory block">बोलो,</span>
-            <span
-              className="block"
-              style={{
-                background: "linear-gradient(135deg, #E8631A 0%, #F5A623 40%, #D4AF37 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              हम order
+          {/* Headline — white/ivory, orange ONLY on "order" */}
+          <motion.h1 initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2 }}
+            style={{ fontFamily:"Rosehot,serif", lineHeight:1.08, marginBottom:"1rem" }}>
+            <span style={{ fontSize:"clamp(3.5rem,8vw,6rem)", color:"#F2E8D5", display:"block" }}>बोलो,</span>
+            <span style={{ fontSize:"clamp(3.5rem,8vw,6rem)", display:"block" }}>
+              <span style={{ color:"#F2E8D5" }}>हम </span>
+              {/* ORANGE is only here */}
+              <span style={{ background:"linear-gradient(135deg,#9B2E0B,#D45A1A)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
+                order
+              </span>
             </span>
-            <span className="text-bko-ivory block">करेंगे</span>
+            <span style={{ fontSize:"clamp(3.5rem,8vw,6rem)", color:"#F2E8D5", display:"block" }}>करेंगे</span>
           </motion.h1>
 
-          {/* Sub-headline */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-bko-muted text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
-            Just say it. We&apos;ll handle the rest. Voice-first ordering for every
-            Indian — Hindi, Kannada, Tamil, Telugu, and more.
+          {/* Sub-headline — softer, no orange */}
+          <motion.p initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.3 }}
+            style={{ fontFamily:"Quivert,sans-serif", color:"#8C7A5E", fontSize:"1.05rem", maxWidth:560, margin:"0 auto 2.5rem", lineHeight:1.7 }}>
+            Just say it. We&apos;ll handle the rest. Voice-first ordering for every Indian — Hindi, Kannada, Tamil, Telugu, and more.
           </motion.p>
 
-          {/* Waveform matchbox card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 }}
-            className="matchbox-card max-w-xs mx-auto mb-10 p-6"
-          >
-            <CornerFlower className="top-3 left-3" />
-            <CornerFlower className="top-3 right-3" />
+          {/* Waveform card */}
+          <motion.div initial={{ opacity:0, scale:0.88 }} animate={{ opacity:1, scale:1 }} transition={{ delay:0.4 }}
+            className="matchbox-card" style={{ maxWidth:280, margin:"0 auto 2.5rem", padding:"1.25rem 1.5rem" }}>
+            <Corners />
             <Waveform />
-            <Divider />
-            <p
-              className="text-xs text-bko-muted mt-1 text-center"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
+            <div className="rule-gold" />
+            <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.72rem", color:"#8C7A5E", textAlign:"center" }}>
               &ldquo;Ek chicken biryani aur do roti mangwa do…&rdquo;
             </p>
           </motion.div>
 
           {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            <Link href="/demo" className="btn-primary text-base px-8 py-3.5">
-              <Phone size={16} />
-              Start Free Demo
+          <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/demo" className="btn-primary" style={{ fontSize:"1rem", padding:"0.8rem 2rem" }}>
+              <Phone size={16} />Start Free Demo
             </Link>
-            <Link href="/dashboard" className="btn-secondary text-base px-8 py-3.5">
-              Operator Dashboard
-              <ArrowRight size={16} />
+            <Link href="/dashboard" className="btn-secondary" style={{ fontSize:"1rem", padding:"0.8rem 2rem" }}>
+              Operator Dashboard<ArrowRight size={16} />
             </Link>
           </motion.div>
 
-          {/* Social proof */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="text-xs text-bko-dim mt-8"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
+          <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.75 }}
+            style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.72rem", color:"#574535", marginTop:"2rem" }}>
             ✦ Built for the 2026 AI Hackathon · Open-source · Multi-tenant SaaS ✦
           </motion.p>
         </div>
       </section>
 
       {/* ══════════════════════════════════════
-          HOW IT WORKS
+          HOW IT WORKS — charcoal/walnut cards, gold borders
       ══════════════════════════════════════ */}
-      <section id="how" className="py-24 relative overflow-hidden">
+      <section id="how" style={{ padding:"6rem 0", background:"#0E0904", position:"relative" }}>
+        {/* Subtle pattern */}
+        <div style={{ position:"absolute", inset:0, backgroundImage:"url('/images/bg_pattern.png')", backgroundSize:220, opacity:0.025, pointerEvents:"none" }} />
 
-        {/* Background pattern layer */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.03]"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "200px" }}
-        />
-
-        <div className="relative z-10 max-w-5xl mx-auto px-6">
-          <div className="text-center mb-6">
-            <span className="badge-traditional mb-4 inline-flex">कैसे काम करता है</span>
-            <h2
-              className="text-5xl text-bko-ivory mt-4 mb-3"
-              style={{ fontFamily: "Rosehot, serif" }}
-            >
+        <div style={{ position:"relative", zIndex:10, maxWidth:1024, margin:"0 auto", padding:"0 1.5rem" }}>
+          <div style={{ textAlign:"center", marginBottom:"1rem" }}>
+            <span className="badge-traditional" style={{ marginBottom:"1rem", display:"inline-flex" }}>कैसे काम करता है</span>
+            <h2 style={{ fontFamily:"Rosehot,serif", fontSize:"clamp(2.2rem,5vw,3.2rem)", color:"#F2E8D5", marginTop:"1rem", marginBottom:"0.5rem" }}>
               How It Works
             </h2>
-            <p className="text-bko-muted" style={{ fontFamily: "Quivert, sans-serif" }}>
-              Three steps. Thirty seconds. Delivered.
-            </p>
+            <p style={{ fontFamily:"Quivert,sans-serif", color:"#8C7A5E" }}>Three steps. Thirty seconds. Delivered.</p>
           </div>
+          <GoldDivider />
 
-          <div className="divider-indian" />
+          <div className="grid md:grid-cols-3 gap-5" style={{ marginTop:"2.5rem" }}>
+            {STEPS.map(({ icon: Icon, num, hi, en, desc, cardCls, accentColor, borderTop }, i) => (
+              <motion.div key={i}
+                initial={{ opacity:0, y:32 }} whileInView={{ opacity:1, y:0 }} transition={{ delay:i*0.12 }} viewport={{ once:true }}
+                className={cardCls} style={{ padding:"2rem 1.75rem", textAlign:"center", borderTop, position:"relative" }}>
+                <Corners />
 
-          <div className="grid md:grid-cols-3 gap-6 mt-10">
-            {STEPS.map(({ icon: Icon, step, title, subtitle, desc, accent, border, bg }, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.12 }}
-                viewport={{ once: true }}
-                className={`matchbox-card p-7 text-center bg-gradient-to-b ${bg}`}
-              >
-                <CornerFlower className="top-3 left-3" />
-                <CornerFlower className="top-3 right-3" />
+                {/* Step number — muted amber, NOT orange */}
+                <div style={{ position:"absolute", top:12, right:16, fontFamily:"Rosehot,serif", fontSize:"3.5rem", color:"rgba(168,123,42,0.12)", lineHeight:1, userSelect:"none" }}>{num}</div>
 
-                {/* Step number */}
-                <div
-                  className="text-6xl font-bold text-bko-gold/10 absolute top-4 right-6 select-none"
-                  style={{ fontFamily: "Rosehot, serif" }}
-                >
-                  {step}
+                {/* Icon ring */}
+                <div style={{ width:60, height:60, border:`1px solid ${accentColor}40`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 1.25rem" }}>
+                  <Icon size={24} style={{ color: accentColor }} />
                 </div>
 
-                {/* Icon */}
-                <div
-                  className={`w-16 h-16 rounded-sm border ${border} flex items-center justify-center mx-auto mb-4 bg-bko-surface/80`}
-                >
-                  <Icon size={26} className={accent} />
-                </div>
-
-                {/* Hindi + English title */}
-                <h3
-                  className={`text-3xl ${accent} mb-0.5`}
-                  style={{ fontFamily: "Rosehot, serif" }}
-                >
-                  {title}
-                </h3>
-                <p className="text-xs text-bko-muted uppercase tracking-widest mb-3">
-                  {subtitle}
-                </p>
-                <p
-                  className="text-sm text-bko-muted leading-relaxed"
-                  style={{ fontFamily: "Quivert, sans-serif" }}
-                >
-                  {desc}
-                </p>
+                <h3 style={{ fontFamily:"Rosehot,serif", fontSize:"2rem", color: accentColor, marginBottom:"0.1rem" }}>{hi}</h3>
+                <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.65rem", color:"#574535", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:"0.85rem" }}>{en}</p>
+                <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.875rem", color:"#8C7A5E", lineHeight:1.65 }}>{desc}</p>
               </motion.div>
             ))}
           </div>
@@ -451,69 +297,46 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════
-          DADI ILLUSTRATION FEATURE STRIP
+          TECHNOLOGY STRIP — deep teal, stats pop in cream
       ══════════════════════════════════════ */}
-      <section className="py-16 bg-bko-surface/30 border-y border-bko-gold/15 relative overflow-hidden">
-        <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center gap-12">
+      <section style={{ background:"#061514", borderTop:"1px solid rgba(26,122,110,0.25)", borderBottom:"1px solid rgba(26,122,110,0.25)", padding:"5rem 0", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", inset:0, backgroundImage:"url('/images/bg_pattern.png')", backgroundSize:200, opacity:0.022, pointerEvents:"none" }} />
+        {/* Teal glow */}
+        <div style={{ position:"absolute", top:"50%", left:"20%", transform:"translate(-50%,-50%)", width:400, height:400, background:"radial-gradient(ellipse, rgba(26,122,110,0.06) 0%, transparent 70%)", pointerEvents:"none" }} />
+
+        <div style={{ position:"relative", zIndex:10, maxWidth:1024, margin:"0 auto", padding:"0 1.5rem", display:"flex", flexWrap:"wrap", gap:"3rem", alignItems:"center" }}>
+
           {/* Illustration */}
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="md:w-1/2 flex justify-center"
-          >
-            <div className="matchbox-card p-3 max-w-[320px] w-full animate-float">
-              <Image
-                src="/images/dadi_illustration.png"
-                alt="Elderly Indian grandmother ordering food by phone"
-                width={320}
-                height={320}
-                className="w-full h-auto rounded-sm"
-              />
+          <motion.div initial={{ opacity:0, x:-40 }} whileInView={{ opacity:1, x:0 }} viewport={{ once:true }} style={{ flex:"0 0 auto" }}>
+            <div className="matchbox-card" style={{ maxWidth:300, animation:"float 3s ease-in-out infinite", animationDelay:"0.2s" }}>
+              <Image src="/images/dadi_illustration.png" alt="Elderly Indian grandmother ordering food" width={300} height={300} style={{ display:"block", width:"100%", height:"auto" }} />
             </div>
           </motion.div>
 
-          {/* Text */}
-          <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="md:w-1/2"
-          >
-            <span className="badge-traditional mb-4 inline-flex">Built for Bharat</span>
-            <h2
-              className="text-4xl text-bko-ivory mt-4 mb-4"
-              style={{ fontFamily: "Rosehot, serif" }}
-            >
-              Technology that cares for
-              <span className="text-festival block"> every generation</span>
+          {/* Text side */}
+          <motion.div initial={{ opacity:0, x:40 }} whileInView={{ opacity:1, x:0 }} viewport={{ once:true }} style={{ flex:"1 1 300px" }}>
+            <span className="badge-traditional" style={{ marginBottom:"1rem", display:"inline-flex" }}>Built for Bharat</span>
+            <h2 style={{ fontFamily:"Rosehot,serif", fontSize:"clamp(1.8rem,4vw,2.6rem)", color:"#F2E8D5", margin:"1rem 0 1rem" }}>
+              Bridging the digital gap for{" "}
+              <span style={{ background:"linear-gradient(135deg,#1A7A6E,#4A7C59)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
+                every generation
+              </span>
             </h2>
-            <p
-              className="text-bko-muted leading-relaxed mb-6"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
-              India has over 138 million senior citizens. Many own a basic phone but
-              struggle with modern apps. BolKeOrder bridges this gap — just one call
-              in their mother tongue, and food comes home.
+            <p style={{ fontFamily:"Quivert,sans-serif", color:"#8C7A5E", lineHeight:1.75, marginBottom:"2rem" }}>
+              India has over 138 million senior citizens. Many own a basic phone but struggle with modern apps. BolKeOrder bridges this gap — just one call in their mother tongue, and food comes home.
             </p>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-6">
+            {/* Stats — cream text, no orange on labels */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"1rem" }}>
               {[
-                { value: "138M+", label: "Senior Citizens" },
-                { value: "12+", label: "Languages" },
-                { value: "30s", label: "To Order" },
-              ].map(({ value, label }) => (
-                <div key={label} className="text-center card-traditional p-4">
-                  <div
-                    className="text-2xl text-bko-gold mb-1"
-                    style={{ fontFamily: "Rosehot, serif" }}
-                  >
-                    {value}
-                  </div>
-                  <div className="text-xs text-bko-muted" style={{ fontFamily: "Quivert, sans-serif" }}>
-                    {label}
-                  </div>
+                { v:"138M+", l:"Senior Citizens" },
+                { v:"12+",   l:"Languages" },
+                { v:"30s",   l:"To Order" },
+              ].map(({ v, l }) => (
+                <div key={l} className="card-traditional" style={{ padding:"1rem", textAlign:"center", border:"1px solid rgba(26,122,110,0.30)", borderTop:"2px solid rgba(26,122,110,0.55)" }}>
+                  {/* orange ONLY on numeric value */}
+                  <div style={{ fontFamily:"Rosehot,serif", fontSize:"1.6rem", color:"#D45A1A", marginBottom:"0.2rem" }}>{v}</div>
+                  <div style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.7rem", color:"#8C7A5E", textTransform:"uppercase", letterSpacing:"0.08em" }}>{l}</div>
                 </div>
               ))}
             </div>
@@ -522,170 +345,101 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════
-          PLATFORMS
+          PLATFORMS — dark slate, logos clear
       ══════════════════════════════════════ */}
-      <section id="platforms" className="py-24 relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.025]"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "200px" }}
-        />
+      <section id="platforms" style={{ padding:"6rem 0", background:"#0D0B09", position:"relative" }}>
+        <div style={{ position:"absolute", inset:0, backgroundImage:"url('/images/bg_pattern.png')", backgroundSize:200, opacity:0.022, pointerEvents:"none" }} />
 
-        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-          <span className="badge-traditional mb-4 inline-flex">Supported Platforms</span>
-          <h2
-            className="text-5xl text-bko-ivory mt-4 mb-3"
-            style={{ fontFamily: "Rosehot, serif" }}
-          >
+        <div style={{ position:"relative", zIndex:10, maxWidth:900, margin:"0 auto", padding:"0 1.5rem", textAlign:"center" }}>
+          <span className="badge-traditional" style={{ marginBottom:"1rem", display:"inline-flex" }}>Supported Platforms</span>
+          <h2 style={{ fontFamily:"Rosehot,serif", fontSize:"clamp(2rem,5vw,3rem)", color:"#F2E8D5", marginTop:"1rem", marginBottom:"0.5rem" }}>
             Your Favourite Apps
           </h2>
-          <p
-            className="text-bko-muted mb-4 text-sm"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
-            Ordering via mock adapters today. Real integrations coming very soon.
+          <p style={{ fontFamily:"Quivert,sans-serif", color:"#8C7A5E", marginBottom:"0.75rem", fontSize:"0.875rem" }}>
+            Ordering via mock adapters today. Real integrations coming soon.
           </p>
+          <GoldDivider />
 
-          <div className="divider-indian" />
+          {/* Platform grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5" style={{ marginTop:"2.5rem" }}>
+            {PLATFORMS.map(({ name, emoji, tagline, dot }, i) => (
+              <motion.div key={name}
+                initial={{ opacity:0, scale:0.88 }} whileInView={{ opacity:1, scale:1 }} transition={{ delay:i*0.08 }} viewport={{ once:true }}
+                whileHover={{ y:-4, boxShadow:"0 10px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,76,0.4)" }}
+                className="card-platform" style={{ padding:"2rem 1.25rem", display:"flex", flexDirection:"column", alignItems:"center", gap:"0.75rem", cursor:"default", position:"relative" }}>
+                <Corners />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10">
-            {PLATFORMS.map(({ name, emoji, tagline, color, border }, i) => (
-              <motion.div
-                key={name}
-                initial={{ opacity: 0, scale: 0.85 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.08 }}
-                viewport={{ once: true }}
-                whileHover={{ scale: 1.05, y: -4 }}
-                className={`matchbox-card p-6 flex flex-col items-center gap-3 cursor-default relative`}
-              >
-                <CornerFlower className="top-2 left-2" style={{ fontSize: "0.9rem" }} />
-                <CornerFlower className="top-2 right-2" style={{ fontSize: "0.9rem" }} />
+                {/* Coloured status dot */}
+                <div style={{ width:8, height:8, background: dot, borderRadius:0, boxShadow:`0 0 8px ${dot}60` }} />
 
-                <div
-                  className="text-4xl"
-                  style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
-                >
-                  {emoji}
-                </div>
-                <p
-                  className="font-bold text-bko-ivory text-sm"
-                  style={{ fontFamily: "Quivert, sans-serif", color }}
-                >
-                  {name}
-                </p>
-                <p className="text-xs text-bko-muted">{tagline}</p>
+                {/* Emoji — clean, no orange wash */}
+                <div style={{ fontSize:"2.5rem", lineHeight:1 }}>{emoji}</div>
+
+                <p style={{ fontFamily:"Quivert,sans-serif", fontWeight:700, color:"#D6C9B0", fontSize:"0.875rem" }}>{name}</p>
+                <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.7rem", color:"#574535" }}>{tagline}</p>
                 <span className="platform-tag">Mock Mode</span>
               </motion.div>
             ))}
           </div>
 
-          {/* Swiggy label art strip */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="mt-10 matchbox-card p-4 max-w-sm mx-auto overflow-hidden"
-          >
-            <Image
-              src="/images/swiggy_label.png"
-              alt="Traditional delivery illustration"
-              width={360}
-              height={200}
-              className="w-full h-auto rounded-sm"
-            />
+          {/* Delivery illustration */}
+          <motion.div initial={{ opacity:0 }} whileInView={{ opacity:1 }} viewport={{ once:true }} style={{ marginTop:"2.5rem" }}>
+            <div className="matchbox-card" style={{ maxWidth:360, margin:"0 auto", padding:"0.5rem" }}>
+              <Image src="/images/swiggy_label.png" alt="Delivery illustration" width={360} height={200}
+                style={{ display:"block", width:"100%", height:"auto" }} />
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* ══════════════════════════════════════
-          TESTIMONIALS
+          TESTIMONIALS — dark chocolate, gold stars
       ══════════════════════════════════════ */}
-      <section
-        id="stories"
-        className="py-24 bg-bko-surface/30 border-y border-bko-gold/15 relative overflow-hidden"
-      >
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.03]"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "200px" }}
-        />
+      <section id="stories" style={{ padding:"6rem 0", background:"#100A08", borderTop:"1px solid rgba(168,123,42,0.18)", position:"relative" }}>
+        <div style={{ position:"absolute", inset:0, backgroundImage:"url('/images/bg_pattern.png')", backgroundSize:200, opacity:0.025, pointerEvents:"none" }} />
 
-        <div className="relative z-10 max-w-5xl mx-auto px-6">
-          <div className="text-center mb-6">
-            <span className="badge-traditional mb-4 inline-flex">असली कहानियाँ</span>
-            <h2
-              className="text-5xl text-bko-ivory mt-4 mb-3"
-              style={{ fontFamily: "Rosehot, serif" }}
-            >
+        <div style={{ position:"relative", zIndex:10, maxWidth:1024, margin:"0 auto", padding:"0 1.5rem" }}>
+          <div style={{ textAlign:"center", marginBottom:"1rem" }}>
+            <span className="badge-traditional" style={{ marginBottom:"1rem", display:"inline-flex" }}>असली कहानियाँ</span>
+            <h2 style={{ fontFamily:"Rosehot,serif", fontSize:"clamp(2.2rem,5vw,3.2rem)", color:"#F2E8D5", marginTop:"1rem", marginBottom:"0.5rem" }}>
               Real Stories
             </h2>
-            <p className="text-bko-muted" style={{ fontFamily: "Quivert, sans-serif" }}>
-              From the people we built this for.
-            </p>
+            <p style={{ fontFamily:"Quivert,sans-serif", color:"#8C7A5E" }}>From the people we built this for.</p>
           </div>
+          <GoldDivider />
 
-          <div className="divider-indian" />
+          <div className="grid md:grid-cols-3 gap-5" style={{ marginTop:"2.5rem" }}>
+            {TESTIMONIALS.map(({ name, age, city, lang, avatar, review }, i) => (
+              <motion.div key={i}
+                initial={{ opacity:0, y:30 }} whileInView={{ opacity:1, y:0 }} transition={{ delay:i*0.12 }} viewport={{ once:true }}
+                className="card-testimonial" style={{ padding:"1.75rem", display:"flex", flexDirection:"column", gap:"1rem", position:"relative" }}>
+                <Corners />
 
-          <div className="grid md:grid-cols-3 gap-6 mt-10">
-            {TESTIMONIALS.map(({ name, age, city, lang, avatar, review, color }, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.12 }}
-                viewport={{ once: true }}
-                className={`matchbox-card p-6 flex flex-col gap-4 bg-gradient-to-b ${color}`}
-              >
-                <CornerFlower className="top-3 left-3" />
-                <CornerFlower className="top-3 right-3" />
-
-                {/* Stars */}
-                <div className="flex gap-0.5 justify-center">
-                  {Array(5)
-                    .fill(0)
-                    .map((_, j) => (
-                      <Star
-                        key={j}
-                        size={13}
-                        className="fill-bko-gold text-bko-gold animate-flicker"
-                        style={{ animationDelay: `${j * 0.2}s` }}
-                      />
-                    ))}
+                {/* Gold stars */}
+                <div style={{ display:"flex", gap:3, justifyContent:"center" }}>
+                  {Array(5).fill(0).map((_,j) => (
+                    <Star key={j} size={13}
+                      style={{ fill:"#C9A84C", color:"#C9A84C", animation:"flicker 2s ease-in-out infinite", animationDelay:`${j*0.2}s` }} />
+                  ))}
                 </div>
 
-                <p
-                  className="text-sm text-bko-muted leading-relaxed italic text-center flex-1"
-                  style={{ fontFamily: "Quivert, sans-serif" }}
-                >
+                {/* Review text — off-white for readability, NOT muted */}
+                <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.875rem", color:"#D6C9B0", lineHeight:1.7, fontStyle:"italic", textAlign:"center", flex:1 }}>
                   &ldquo;{review}&rdquo;
                 </p>
 
-                <div className="rule-gold" style={{ margin: "0.5rem 0" }} />
+                <div className="rule-gold" style={{ margin:"0.25rem 0" }} />
 
-                <div className="flex items-center gap-3">
-                  {/* Devanagari avatar */}
-                  <div
-                    className="w-10 h-10 rounded-sm bg-bko-saffron/20 border border-bko-gold/30 flex items-center justify-center text-bko-gold font-bold text-lg flex-shrink-0"
-                    style={{ fontFamily: "Rosehot, serif" }}
-                  >
+                <div style={{ display:"flex", alignItems:"center", gap:"0.75rem" }}>
+                  {/* Avatar */}
+                  <div style={{ width:40, height:40, border:"1px solid rgba(201,168,76,0.35)", display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(201,168,76,0.08)", fontFamily:"Rosehot,serif", fontSize:"1.2rem", color:"#C9A84C", flexShrink:0 }}>
                     {avatar}
                   </div>
                   <div>
-                    <p
-                      className="text-sm font-bold text-bko-ivory"
-                      style={{ fontFamily: "Quivert, sans-serif" }}
-                    >
-                      {name}
-                    </p>
-                    <p
-                      className="text-xs text-bko-muted"
-                      style={{ fontFamily: "Quivert, sans-serif" }}
-                    >
-                      Age {age} · {city}
-                    </p>
+                    <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.875rem", fontWeight:700, color:"#F2E8D5" }}>{name}</p>
+                    <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.72rem", color:"#574535" }}>Age {age} · {city}</p>
                   </div>
-                  <span className="ml-auto badge-traditional text-[0.6rem] py-0.5 px-2">
-                    {lang}
-                  </span>
+                  <span className="badge-traditional" style={{ marginLeft:"auto", fontSize:"0.6rem", padding:"0.18rem 0.55rem" }}>{lang}</span>
                 </div>
               </motion.div>
             ))}
@@ -694,47 +448,52 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════
-          CTA BAND
+          CTA BAND — THE ONLY orange-dominant block
       ══════════════════════════════════════ */}
-      <section className="py-20 relative overflow-hidden">
-        {/* Saffron gradient bg */}
-        <div className="absolute inset-0 bg-gradient-to-r from-bko-crimson/10 via-bko-saffron/10 to-bko-turmeric/10" />
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "180px" }}
-        />
+      <section style={{ padding:"6rem 0", background:"linear-gradient(135deg, #5A1008 0%, #9B2E0B 40%, #D45A1A 100%)", position:"relative", overflow:"hidden" }}>
+        {/* Subtle pattern layer */}
+        <div style={{ position:"absolute", inset:0, backgroundImage:"url('/images/bg_pattern.png')", backgroundSize:180, opacity:0.06, pointerEvents:"none" }} />
+        {/* Warm radial */}
+        <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:700, height:700, background:"radial-gradient(ellipse, rgba(255,150,50,0.12) 0%, transparent 70%)", pointerEvents:"none" }} />
 
-        <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
-          <h2
-            className="text-5xl text-bko-ivory mb-4"
-            style={{ fontFamily: "Rosehot, serif" }}
-          >
-            Try it yourself{" "}
-            <span
-              style={{
-                background: "linear-gradient(135deg,#E8631A,#D4AF37)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              — free
-            </span>
+        {/* Top border */}
+        <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:"rgba(201,168,76,0.4)" }} />
+        {/* Bottom border */}
+        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(201,168,76,0.4)" }} />
+
+        <div style={{ position:"relative", zIndex:10, maxWidth:700, margin:"0 auto", padding:"0 1.5rem", textAlign:"center" }}>
+          <h2 style={{ fontFamily:"Rosehot,serif", fontSize:"clamp(2.2rem,6vw,3.5rem)", color:"#FAF0DC", marginBottom:"1rem" }}>
+            Try it yourself — free
           </h2>
-          <p
-            className="text-bko-muted mb-8"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
+          <p style={{ fontFamily:"Quivert,sans-serif", color:"rgba(242,232,213,0.70)", marginBottom:"2.5rem", fontSize:"1.05rem" }}>
             No credit card. No app download. Just speak.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/demo" className="btn-primary px-10 py-4 text-base">
-              <Mic size={18} />
-              Start Free Demo
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"1rem", justifyContent:"center" }}>
+            {/* Inverted button — ivory on orange bg */}
+            <Link href="/demo" style={{
+              background:"#FAF0DC", color:"#9B2E0B",
+              fontFamily:"Quivert,sans-serif", fontWeight:700,
+              border:"2px solid rgba(242,232,213,0.35)",
+              padding:"0.9rem 2.25rem",
+              display:"inline-flex", alignItems:"center", gap:"0.5rem",
+              fontSize:"1rem",
+              boxShadow:"0 6px 24px rgba(0,0,0,0.35)",
+              transition:"all 0.2s ease",
+              textDecoration:"none",
+            }}>
+              <Mic size={18} />Start Free Demo
             </Link>
-            <Link href="/dashboard" className="btn-secondary px-10 py-4 text-base">
-              Operator Dashboard
-              <ArrowRight size={16} />
+            <Link href="/dashboard" style={{
+              background:"transparent", color:"#FAF0DC",
+              fontFamily:"Quivert,sans-serif",
+              border:"1px solid rgba(242,232,213,0.45)",
+              padding:"0.9rem 2.25rem",
+              display:"inline-flex", alignItems:"center", gap:"0.5rem",
+              fontSize:"1rem",
+              textDecoration:"none",
+              transition:"all 0.2s ease",
+            }}>
+              Operator Dashboard<ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -743,70 +502,44 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════
           FOOTER
       ══════════════════════════════════════ */}
-      <footer className="border-t border-bko-gold/20 bg-bko-surface/60 py-10">
-        {/* Top decorative strip */}
-        <div className="divider-indian max-w-5xl mx-auto px-6" />
+      <footer style={{ background:"#0A0702", borderTop:"1px solid rgba(201,168,76,0.20)", padding:"2.5rem 0 1.5rem" }}>
+        <div className="divider-indian" style={{ maxWidth:1024, margin:"0 auto 1.5rem", padding:"0 1.5rem" }} />
 
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 1.5rem", display:"flex", flexWrap:"wrap", alignItems:"center", justifyContent:"space-between", gap:"1.5rem" }}>
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-sm overflow-hidden border border-bko-gold/30">
-              <Image
-                src="/images/logo_bko.png"
-                alt="BolKeOrder"
-                fill
-                className="object-cover"
-              />
+          <div style={{ display:"flex", alignItems:"center", gap:"0.75rem" }}>
+            <div style={{ width:36, height:36, border:"1px solid rgba(201,168,76,0.3)", overflow:"hidden", position:"relative", flexShrink:0 }}>
+              <Image src="/images/logo_bko.png" alt="BolKeOrder" fill className="object-cover" />
             </div>
             <div>
-              <span
-                className="font-bold text-bko-gold block text-lg leading-tight"
-                style={{ fontFamily: "Rosehot, serif" }}
-              >
-                BolKeOrder
-              </span>
-              <span className="text-[0.6rem] text-bko-muted tracking-widest uppercase">
-                Voice Commerce · भारत
-              </span>
+              <span style={{ fontFamily:"Rosehot,serif", fontSize:"1.1rem", color:"#C9A84C", display:"block" }}>BolKeOrder</span>
+              <span style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.58rem", color:"#574535", letterSpacing:"0.12em", textTransform:"uppercase" }}>Voice Commerce · भारत</span>
             </div>
           </div>
 
           {/* Tech badges */}
-          <div className="flex flex-wrap items-center gap-2 justify-center">
-            {TECH.map((tech) => (
-              <span
-                key={tech}
-                className="text-xs bg-bko-elevated border border-bko-gold/15 text-bko-muted px-2.5 py-1 rounded-sm"
-                style={{ fontFamily: "Quivert, sans-serif" }}
-              >
-                {tech}
-              </span>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem", justifyContent:"center" }}>
+            {TECH.map(t => (
+              <span key={t} style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.7rem", background:"#17100A", border:"1px solid rgba(201,168,76,0.15)", color:"#574535", padding:"0.2rem 0.65rem" }}>{t}</span>
             ))}
           </div>
 
           {/* Links */}
-          <div className="flex items-center gap-4 text-bko-muted text-sm">
-            <a
-              href="#"
-              className="flex items-center gap-1.5 hover:text-bko-turmeric transition-colors"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
-              <Code2 size={14} /> GitHub
+          <div style={{ display:"flex", gap:"1.5rem", fontFamily:"Quivert,sans-serif", fontSize:"0.875rem", color:"#574535" }}>
+            <a href="#" style={{ display:"flex", alignItems:"center", gap:5, transition:"color 0.2s" }}
+              onMouseOver={e => (e.currentTarget.style.color="#C9A84C")}
+              onMouseOut={e  => (e.currentTarget.style.color="#574535")}>
+              <Code2 size={13} />GitHub
             </a>
-            <a
-              href="#"
-              className="flex items-center gap-1.5 hover:text-bko-turmeric transition-colors"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
-              <Mail size={14} /> Contact
+            <a href="#" style={{ display:"flex", alignItems:"center", gap:5, transition:"color 0.2s" }}
+              onMouseOver={e => (e.currentTarget.style.color="#C9A84C")}
+              onMouseOut={e  => (e.currentTarget.style.color="#574535")}>
+              <Mail size={13} />Contact
             </a>
           </div>
         </div>
 
-        <p
-          className="text-center text-xs text-bko-dim mt-6"
-          style={{ fontFamily: "Quivert, sans-serif" }}
-        >
+        <p style={{ fontFamily:"Quivert,sans-serif", fontSize:"0.68rem", color:"#2E1E0E", textAlign:"center", marginTop:"1.75rem" }}>
           ✦ Made with ❤️ for Bharat · 2026 AI Hackathon ✦
         </p>
       </footer>
