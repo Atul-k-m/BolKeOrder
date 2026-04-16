@@ -81,7 +81,7 @@ export const MENU: MenuItem[] = [
   { id: "sn1", name: "Pav Bhaji",             price: 140, category: "snacks",      isVeg: true,  description: "Spiced vegetable mash with butter rolls",keywords: ["pav bhaji", "pav", "bhaji"] },
   { id: "sn2", name: "Chole Bhature",         price: 160, category: "snacks",      isVeg: true,  description: "Fluffy fried bread with chickpea curry",  keywords: ["chole bhature", "bhature", "chole bature"] },
   { id: "sn3", name: "Vada Pav",              price: 50,  category: "snacks",      isVeg: true,  description: "Mumbai's favorite potato slider",       keywords: ["vada pav", "vada pao", "wada pav"] },
-  { id: "sn4", name: "Aloo Tikki (3 pcs)",    price: 80,  category: "snacks",      isVeg: true,  description: "Spiced potato patties",                keys: ["aloo tikki", "aloo tiki", "tikki"], keywords: ["aloo tikki", "aloo tiki", "tikki"] },
+  { id: "sn4", name: "Aloo Tikki (3 pcs)",    price: 80,  category: "snacks",      isVeg: true,  description: "Spiced potato patties",                keywords: ["aloo tikki", "aloo tiki", "tikki"] },
   { id: "sn5", name: "Bhel Puri",             price: 70,  category: "snacks",      isVeg: true,  description: "Puffed rice with chutneys and sev",     keywords: ["bhel puri", "bhel", "puri"] },
 
   // ── DESSERTS ──────────────────────────────────────────────
