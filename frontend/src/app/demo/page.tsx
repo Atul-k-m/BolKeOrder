@@ -148,11 +148,34 @@ export default function DemoPage() {
     lastFinal.current = "";
     clearFinalTranscript();
     processingRef.current = false;
-    start();
-    setTimeout(() => {
-      const greet = "Hello! Welcome to BolKeOrder. I'm ordering from Meghana Foods today. What would you like to have?";
-      setConv(prev => ({ ...prev, messages: [{ role: "ai", text: greet, ts: Date.now() }] }));
-    }, 400);
+
+    // Set connecting status first
+    updateStatus("connecting");
+
+    const greet = "Hello! Welcome to BolKeOrder. I am here to take your order from Meghana Foods. What would you like to have today?";
+
+    // Speak the greeting — on finish, start listening for user input
+    const doGreet = () => {
+      // Push greeting into chat messages
+      setConv(prev => ({
+        ...prev,
+        phase: "ordering",
+        messages: [{ role: "ai", text: greet, ts: Date.now() }]
+      }));
+      speak(greet, () => {
+        processingRef.current = false;
+        startListening();
+        startAudioFeedback();
+        resetSilenceTimer();
+      });
+    };
+
+    // Voices may not be loaded yet on first visit
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.onvoiceschanged = doGreet;
+    } else {
+      doGreet();
+    }
   };
 
   const handleStop = () => {

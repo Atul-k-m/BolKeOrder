@@ -13,23 +13,24 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   const [mode, setMode] = useState<AssistantMode>(defaultMode);
   const [status, setStatus] = useState<CallStatus>("inactive");
   const [volumeLevel, setVolumeLevel] = useState(0);
-
-  // Separated interim (show in UI) vs final (send to engine)
-  const [interimTranscript, setInterimTranscript] = useState(""); // partial words, display only
-  const [finalTranscript, setFinalTranscript] = useState("");     // complete sentences, process these
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [finalTranscript, setFinalTranscript] = useState("");
 
   const recognitionRef = useRef<any>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const statusRef = useRef<CallStatus>("inactive");
   const isSpeakingRef = useRef(false);
   const finalDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingFinalRef = useRef(""); // accumulate final words between debounce flushes
+  const pendingFinalRef = useRef("");
+  const lastErrorRef = useRef("");
+  const restartTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isRecognitionActiveRef = useRef(false);
 
-  useEffect(() => { statusRef.current = status; }, [status]);
+  // Keep statusRef in sync synchronously to avoid stale closure bugs
+  const updateStatus = useCallback((s: CallStatus) => {
+    statusRef.current = s;
+    setStatus(s);
+  }, []);
 
   const getVapi = () => {
     if (!vapiInstance && typeof window !== "undefined") {
@@ -38,94 +39,82 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     return vapiInstance;
   };
 
-  const startAudioContext = async () => {
+  // ---------------------------------------------------------------------------
+  // Volume level: derived from onresult transcript activity, NOT AudioContext.
+  // AudioContext competing for the mic was causing recognition to die silently.
+  // ---------------------------------------------------------------------------
+  const simulateVolume = useCallback((active: boolean) => {
+    setVolumeLevel(active ? 0.6 : 0);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Recognition
+  // ---------------------------------------------------------------------------
+  const safeStartRecognition = useCallback(() => {
+    if (!recognitionRef.current) return;
+    if (isRecognitionActiveRef.current) return; // already running
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AC = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AC();
-      audioContextRef.current = ctx;
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-      const mic = ctx.createMediaStreamSource(stream);
-      mic.connect(analyser);
-      microphoneRef.current = mic;
-      const buf = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(buf);
-        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-        setVolumeLevel(avg / 255);
-        animationFrameRef.current = requestAnimationFrame(tick);
-      };
-      tick();
-    } catch (e) { console.error("Mic denied:", e); }
-  };
-
-  const stopAudioContext = () => {
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    microphoneRef.current?.disconnect();
-    audioContextRef.current?.close();
-    setVolumeLevel(0);
-  };
-
-  const startListening = useCallback(() => {
-    if (!recognitionRef.current) return;
-    try { recognitionRef.current.start(); setStatus("connected"); } catch (_) {}
+      recognitionRef.current.start();
+    } catch (e: any) {
+      // "already started" is harmless — anything else log it
+      if (!e?.message?.includes("already started")) {
+        console.warn("recognition.start() error:", e?.message);
+      }
+    }
   }, []);
 
-  const stopListening = useCallback(() => {
+  const safeStopRecognition = useCallback(() => {
     if (!recognitionRef.current) return;
+    isRecognitionActiveRef.current = false;
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     try { recognitionRef.current.stop(); } catch (_) {}
+    try { recognitionRef.current.abort(); } catch (_) {}
   }, []);
-
-  const speak = useCallback((text: string, onEnd?: () => void) => {
-    if (!synthRef.current) return;
-    synthRef.current.cancel();
-    isSpeakingRef.current = true;
-    setStatus("speaking");
-    stopListening();
-
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = "en-IN";
-    utt.rate = 0.88;   // Slower, more deliberate — easier to follow
-    utt.pitch = 1.0;
-    utt.volume = 1;
-
-    const voices = synthRef.current.getVoices();
-    // Prefer natural Indian-English or UK English female voice
-    const preferred =
-      voices.find(v => v.name === "Google UK English Female") ||
-      voices.find(v => v.lang === "en-IN") ||
-      voices.find(v => v.lang.startsWith("en-GB")) ||
-      voices.find(v => v.lang.startsWith("en"));
-    if (preferred) utt.voice = preferred;
-
-    utt.onend = () => {
-      isSpeakingRef.current = false;
-      if (onEnd) onEnd();
-      else { startListening(); startAudioContext(); }
-    };
-    utt.onerror = () => {
-      isSpeakingRef.current = false;
-      if (onEnd) onEnd();
-    };
-    synthRef.current.speak(utt);
-  }, [startListening, stopListening]);
 
   const setupRecognition = useCallback(() => {
     if (typeof window === "undefined") return;
     synthRef.current = window.speechSynthesis;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
 
-    recognitionRef.current = new SR();
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = "en-IN";
-    recognitionRef.current.maxAlternatives = 1;
+    const SR =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      console.warn("Web Speech API not supported in this browser.");
+      return;
+    }
 
-    recognitionRef.current.onresult = (event: any) => {
+    const rec = new SR();
+    // continuous: false avoids the Chrome silent-kill bug on localhost.
+    // onend restarts it manually after each utterance — same UX, more stable.
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = "en-IN";
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => {
+      isRecognitionActiveRef.current = true;
+    };
+
+    rec.onaudiostart = () => {
+      simulateVolume(true);
+    };
+
+    rec.onspeechstart = () => {
+      simulateVolume(true);
+    };
+
+    rec.onspeechend = () => {
+      simulateVolume(false);
+    };
+
+    rec.onaudioend = () => {
+      simulateVolume(false);
+    };
+
+    rec.onresult = (event: any) => {
       let interim = "";
       let newFinal = "";
 
@@ -138,96 +127,210 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
         }
       }
 
-      // Always show interim in UI so user sees their words
       setInterimTranscript(interim);
 
-      // Accumulate final results — debounce before exposing to engine
-      // This prevents processing every half-spoken word
       if (newFinal.trim()) {
         pendingFinalRef.current += " " + newFinal.trim();
-
-        // Debounce: wait 1.5s of no-more-final before flushing
         if (finalDebounceRef.current) clearTimeout(finalDebounceRef.current);
         finalDebounceRef.current = setTimeout(() => {
           const flushed = pendingFinalRef.current.trim();
           pendingFinalRef.current = "";
-          setInterimTranscript(""); // clear interim on flush
+          setInterimTranscript("");
           if (flushed) setFinalTranscript(flushed);
-        }, 1500);
+        }, 1200);
       }
     };
 
-    recognitionRef.current.onerror = (e: any) => {
-      if (e.error !== "no-speech") console.error("Recognition error:", e.error);
-    };
-
-    recognitionRef.current.onend = () => {
-      if (statusRef.current === "connected" && !isSpeakingRef.current) {
-        try { recognitionRef.current.start(); } catch (_) {}
+    rec.onerror = (e: any) => {
+      lastErrorRef.current = e.error;
+      isRecognitionActiveRef.current = false;
+      if (e.error === "not-allowed") {
+        console.error("Microphone permission denied.");
+        updateStatus("inactive");
       }
+      // no-speech and network are recoverable — handled in onend
     };
-  }, []);
 
+    rec.onend = () => {
+      isRecognitionActiveRef.current = false;
+      simulateVolume(false);
+
+      // Only restart if we're still supposed to be listening
+      if (statusRef.current !== "connected" || isSpeakingRef.current) return;
+
+      const delay =
+        lastErrorRef.current === "network" ? 1500
+        : lastErrorRef.current === "no-speech" ? 100
+        : 300; // default — gives Chrome time to reset audio pipeline
+
+      lastErrorRef.current = "";
+
+      restartTimerRef.current = setTimeout(() => {
+        if (statusRef.current === "connected" && !isSpeakingRef.current) {
+          safeStartRecognition();
+        }
+      }, delay);
+    };
+
+    recognitionRef.current = rec;
+  }, [simulateVolume, updateStatus, safeStartRecognition]);
+
+  // ---------------------------------------------------------------------------
+  // TTS
+  // ---------------------------------------------------------------------------
+  const speak = useCallback(
+    (text: string, onEnd?: () => void) => {
+      if (!synthRef.current) return;
+      synthRef.current.cancel();
+      isSpeakingRef.current = true;
+      updateStatus("speaking");
+      safeStopRecognition();
+
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = "en-IN";
+      utt.rate = 0.88;
+      utt.pitch = 1.0;
+      utt.volume = 1;
+
+      const voices = synthRef.current.getVoices();
+      const preferred =
+        voices.find((v) => v.name === "Google UK English Female") ||
+        voices.find((v) => v.lang === "en-IN") ||
+        voices.find((v) => v.lang.startsWith("en-GB")) ||
+        voices.find((v) => v.lang.startsWith("en"));
+      if (preferred) utt.voice = preferred;
+
+      utt.onend = () => {
+        isSpeakingRef.current = false;
+        if (onEnd) {
+          onEnd();
+        } else {
+          // Give browser 600ms to fully release the audio output device
+          // before we ask for mic input — fixes the silent-kill loop
+          setTimeout(() => {
+            if (statusRef.current === "connected") {
+              safeStartRecognition();
+            }
+          }, 600);
+        }
+      };
+
+      utt.onerror = (e) => {
+        console.warn("TTS error:", e.error);
+        isSpeakingRef.current = false;
+        if (onEnd) onEnd();
+      };
+
+      synthRef.current.speak(utt);
+    },
+    [updateStatus, safeStopRecognition, safeStartRecognition]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     setupRecognition();
+
     const vapi = getVapi();
     if (vapi) {
-      vapi.on("call-start", () => setStatus("connected"));
-      vapi.on("call-end", () => setStatus("inactive"));
-      vapi.on("error", (e: any) => { console.error(e); setStatus("inactive"); });
+      vapi.on("call-start", () => updateStatus("connected"));
+      vapi.on("call-end", () => updateStatus("inactive"));
+      vapi.on("error", (e: any) => {
+        console.error("Vapi error:", e);
+        updateStatus("inactive");
+      });
       vapi.on("volume-level", (v: number) => setVolumeLevel(v));
     }
-  }, [setupRecognition]);
 
-  const toggleMode = (newMode: AssistantMode) => {
-    if (statusRef.current !== "inactive" && statusRef.current !== "ordered") stop();
-    setMode(newMode);
-  };
+    return () => {
+      safeStopRecognition();
+      synthRef.current?.cancel();
+      if (finalDebounceRef.current) clearTimeout(finalDebounceRef.current);
+    };
+  }, [setupRecognition, updateStatus, safeStopRecognition]);
 
-  const start = (greetingOverride?: string) => {
-    setStatus("connecting");
-    setFinalTranscript("");
-    setInterimTranscript("");
-    pendingFinalRef.current = "";
-    if (mode === "vapi") {
-      getVapi()?.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "");
-    } else {
-      const greeting = greetingOverride || "Welcome to Bolke Order! What would you like to order today?";
-      const doSpeak = () => speak(greeting);
-      if (window.speechSynthesis.getVoices().length === 0) {
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+  const start = useCallback(
+    (greetingOverride?: string) => {
+      updateStatus("connecting");
+      setFinalTranscript("");
+      setInterimTranscript("");
+      pendingFinalRef.current = "";
+
+      if (mode === "vapi") {
+        getVapi()?.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "");
+        return;
+      }
+
+      const greeting =
+        greetingOverride ||
+        "Welcome to Bolke Order! What would you like to order today?";
+
+      const doSpeak = () => {
+        updateStatus("connected");
+        speak(greeting);
+      };
+
+      if (
+        typeof window !== "undefined" &&
+        window.speechSynthesis.getVoices().length === 0
+      ) {
         window.speechSynthesis.onvoiceschanged = doSpeak;
       } else {
         doSpeak();
       }
-    }
-  };
+    },
+    [mode, speak, updateStatus]
+  );
 
-  const stop = () => {
+  const stop = useCallback(() => {
     synthRef.current?.cancel();
     isSpeakingRef.current = false;
     if (finalDebounceRef.current) clearTimeout(finalDebounceRef.current);
     pendingFinalRef.current = "";
-    stopListening();
-    stopAudioContext();
-    setStatus("inactive");
+    safeStopRecognition();
+    setVolumeLevel(0);
+    updateStatus("inactive");
     setFinalTranscript("");
     setInterimTranscript("");
-  };
+  }, [safeStopRecognition, updateStatus]);
 
-  const clearFinalTranscript = () => {
+  const toggleMode = useCallback(
+    (newMode: AssistantMode) => {
+      if (
+        statusRef.current !== "inactive" &&
+        statusRef.current !== "ordered"
+      ) {
+        stop();
+      }
+      setMode(newMode);
+    },
+    [stop]
+  );
+
+  const clearFinalTranscript = useCallback(() => {
     setFinalTranscript("");
     pendingFinalRef.current = "";
-  };
+  }, []);
 
   return {
-    mode, status, volumeLevel,
-    interimTranscript,  // show this in the chat bubble as the user is speaking
-    finalTranscript,    // process this in the conversation engine (debounced)
-    toggleMode, start, stop, speak,
-    startListening, stopListening,
-    updateStatus: (s: CallStatus) => setStatus(s),
+    mode,
+    status,
+    volumeLevel,
+    interimTranscript,
+    finalTranscript,
+    toggleMode,
+    start,
+    stop,
+    speak,
+    startListening: safeStartRecognition,
+    stopListening: safeStopRecognition,
+    updateStatus,
     clearFinalTranscript,
     setLanguageMode: (_lang: Language) => {},
-    startAudioFeedback: startAudioContext,
+    startAudioFeedback: () => {}, 
   };
 }
