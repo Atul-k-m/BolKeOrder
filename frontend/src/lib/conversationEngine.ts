@@ -8,6 +8,7 @@ import {
   parseItemFromTranscript,
   detectRemoveIntent,
   detectConfirmation,
+  detectDoneOrdering,
   UPSELL_SUGGESTIONS,
   CartItem,
   MenuItem,
@@ -22,6 +23,7 @@ export type ConvPhase =
   | "summarizing"    // AI reading back the full order (10s silence triggered this)
   | "confirming"     // AI asked "Shall I confirm?" waiting for yes/no
   | "asking_coupon"  // Confirmed, now asking for coupon
+  | "comparing_prices" // Querying GraphQL to compare platform prices
   | "finalizing"     // All done
   | "done";
 
@@ -42,6 +44,11 @@ export type ConvState = {
   couponApplied: boolean;
   discount: number;
   messages: ConvMessage[];
+  comparisonResult?: {
+    platform: string;
+    oldTotal: number;
+    newTotal: number;
+  };
 };
 
 export type ConvOutput = {
@@ -116,6 +123,8 @@ export function processTranscript(
   // ── Handle phase: upselling ──────────────────────────────
   if (s.phase === "upselling") {
     const conf = detectConfirmation(transcript);
+    const doneOrdering = detectDoneOrdering(transcript);
+
     if (conf === "yes" && s.upsellPending?.length) {
       const item = findMenuItemById(s.upsellPending[0]);
       if (item) {
@@ -129,11 +138,17 @@ export function processTranscript(
         return { newState: s, speak, cartUpdated };
       }
     }
-    // If no/skip, go back to ordering
+
+    // Any form of "no" or "done" snaps out of upsell and moves to confirm
+    if (conf === "no" || doneOrdering) {
+      const summary = formatCartSummary(s.cart, lang);
+      s = { ...s, phase: "confirming", upsellPending: undefined };
+      s = addMessage(s, "ai", summary);
+      return { newState: s, speak: summary, cartUpdated: false };
+    }
+
+    // They might be adding a new item — fall through to item parsing below
     s = { ...s, phase: "ordering", upsellPending: undefined };
-    speak = lang === "hindi" ? "Theek hai. Aur kuch chahiye?" : "No problem! What else would you like?";
-    s = addMessage(s, "ai", speak);
-    return { newState: s, speak, cartUpdated };
   }
 
   // ── Handle phase: summarizing / confirming ───────────────
@@ -168,21 +183,21 @@ export function processTranscript(
       const sub = calcTotal(s.cart);
       const disc = Math.floor(sub * 0.10);
       const total = sub + 45 - disc;
-      s = { ...s, phase: "done", couponApplied: true, discount: disc };
+      s = { ...s, phase: "comparing_prices", couponApplied: true, discount: disc };
       speak = lang === "hindi"
-        ? `Coupon apply ho gaya! Aapne ₹${disc} bachaye. Final total ₹${total} hai. Order place kar diya gaya. Shukriya BolKeOrder use karne ke liye!`
-        : `Coupon applied! You saved ₹${disc}. Your final total is ₹${total}. Order has been placed — thank you for using BolKeOrder!`;
+        ? `Coupon apply ho gaya! Aapne ₹${disc} bachaye. Ab main best price compare kar raha hoon.`
+        : `Coupon applied! You saved ₹${disc}. Give me a moment to find the best price across platforms...`;
       s = addMessage(s, "ai", speak);
-      return { newState: { ...s, phase: "done" }, speak, cartUpdated };
+      return { newState: { ...s, phase: "comparing_prices" }, speak, cartUpdated: false };
     }
     if (noCoupon || conf === "no") {
       const total = calcTotal(s.cart) + 45;
-      s = { ...s, phase: "done", couponApplied: false };
+      s = { ...s, phase: "comparing_prices", couponApplied: false };
       speak = lang === "hindi"
-        ? `Theek hai. Total ₹${total} hai. Order place ho gaya. Shukriya!`
-        : `Great! Your total is ₹${total}. Your order has been placed — thank you!`;
+        ? `Theek hai. Ab main sab platforms par check karta hoon.`
+        : `Great! Let me compare prices to give you the best deal...`;
       s = addMessage(s, "ai", speak);
-      return { newState: { ...s, phase: "done" }, speak, cartUpdated };
+      return { newState: { ...s, phase: "comparing_prices" }, speak, cartUpdated: false };
     }
     // Ambiguous response, re-ask
     speak = lang === "hindi"
@@ -211,6 +226,24 @@ export function processTranscript(
   }
 
   // ── Handle item detection (ordering phase) ───────────────
+  // First check if user is signalling they are done ordering
+  if (s.phase === "ordering") {
+    const doneSignal = detectDoneOrdering(transcript);
+    if (doneSignal && s.cart.length > 0) {
+      const summary = formatCartSummary(s.cart, lang);
+      s = { ...s, phase: "confirming" };
+      s = addMessage(s, "ai", summary);
+      return { newState: s, speak: summary, cartUpdated: false };
+    }
+    if (doneSignal && s.cart.length === 0) {
+      speak = lang === "hindi"
+        ? "Aapne abhi kuch order nahi kiya. Kya mangwana hai?"
+        : "You haven't added anything yet! What would you like to order?";
+      s = addMessage(s, "ai", speak);
+      return { newState: s, speak, cartUpdated: false };
+    }
+  }
+
   const parsed = parseItemFromTranscript(transcript);
   if (parsed) {
     const { item, qty, notes } = parsed;

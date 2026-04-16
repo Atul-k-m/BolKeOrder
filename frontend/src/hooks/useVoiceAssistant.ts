@@ -355,7 +355,46 @@ export function useVoiceAssistant(
           updateStatus("inactive");
           return;
         }
-        getVapi()?.start(assistantId);
+
+        const overrides: any = {
+          model: {
+            provider: "openai",
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: `You are BolKeOrder, a natural and polite food ordering assistant.
+1. Start exactly by saying: "Welcome to BolKeOrder! What do you wanna order today?"
+2. When the user lists items, verbally confirm them naturally and ask "Anything else?".
+3. If the user indicates they are done (e.g. saying "No", "I don't need it", or "That's it"), tell them: "Alright, give me a moment to find the best price for your order." Then IMMEDIATELY call the "complete_order" function with their items. Do not ask for confirmation before calling the function.
+4. Speak naturally in a mix of Hindi and English. Do NOT proactively mention you are comparing platforms until they are done ordering.`
+              }
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "complete_order",
+                  description: "Call this when the user is done adding items and says they don't want anything else.",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      items: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "List of food items the user has ordered"
+                      }
+                    },
+                    required: ["items"]
+                  }
+                }
+              }
+            ],
+            temperature: 0.4
+          }
+        };
+
+        getVapi()?.start(assistantId, overrides);
         return;
       }
 

@@ -1,9 +1,10 @@
 import strawberry
 from graphql_schema.queries.user_queries import UserQuery
+from graphql_schema.queries.platform_queries import PlatformQuery
 
 # Combine all queries
 @strawberry.type
-class Query(UserQuery):
+class Query(UserQuery, PlatformQuery):
     @strawberry.field
     def hello(self) -> str:
         return "BolKeOrder GraphQL API is alive!"

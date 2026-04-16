@@ -239,7 +239,7 @@ export default function LandingPage() {
             </Link>
             <Link href="/demo" className="btn-primary text-sm py-2 px-5">
               <Mic size={14} />
-              Free Demo
+              Open App Container
             </Link>
           </div>
         </div>
@@ -352,7 +352,7 @@ export default function LandingPage() {
           >
             <Link href="/demo" className="btn-primary text-base px-8 py-3.5">
               <Phone size={16} />
-              Start Free Demo
+              Open App Container
             </Link>
             <Link href="/dashboard" className="btn-secondary text-base px-8 py-3.5">
               Operator Dashboard
@@ -368,7 +368,7 @@ export default function LandingPage() {
             className="text-xs text-bko-dim mt-8"
             style={{ fontFamily: "Quivert, sans-serif" }}
           >
-            ✦ Built for the 2026 AI Hackathon · Open-source · Multi-tenant SaaS ✦
+            ✦ The Universal Voice Platform Container ✦
           </motion.p>
         </div>
       </section>
@@ -730,7 +730,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/demo" className="btn-primary px-10 py-4 text-base">
               <Mic size={18} />
-              Start Free Demo
+              Open App Container
             </Link>
             <Link href="/dashboard" className="btn-secondary px-10 py-4 text-base">
               Operator Dashboard

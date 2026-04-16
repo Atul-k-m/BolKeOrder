@@ -15,6 +15,21 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { gql, useLazyQuery } from "@apollo/client";
+
+const COMPARE_PRICES_QUERY = gql`
+  query ComparePrices($items: [String!]!) {
+    comparePrices(items: $items) {
+      itemName
+      prices {
+        platform { id name }
+        price
+      }
+      bestPlatform
+      bestPrice
+    }
+  }
+`;
 
 const SILENCE_MS = 10_000;
 
@@ -62,6 +77,8 @@ export default function DemoPage() {
   // Keep convRef current — handlers close over this instead of stale conv
   useEffect(() => { convRef.current = conv; }, [conv]);
 
+  const [fetchPrices, { loading: priceLoading }] = useLazyQuery(COMPARE_PRICES_QUERY);
+
   // ── Vapi transcript handler — runs conversationEngine on every Vapi utterance
   // This is the key integration: Vapi speaks and transcribes, we update cart
   const handleVapiTranscript = useCallback<VapiTranscriptHandler>(
@@ -97,6 +114,34 @@ export default function DemoPage() {
     }
   }, []);
 
+  const handleVapiFunctionCall = useCallback<VapiFunctionCallHandler>(
+    (name, args) => {
+      console.log("[Vapi Tool]", name, args);
+      if (name === "complete_order") {
+        const parsedItems = (args.items as string[]) || [];
+        const newCart = parsedItems.map((itemStr, idx) => {
+          const match = itemStr.match(/^(\d+)\s+(.+)$/);
+          const qty = match ? parseInt(match[1]) : 1;
+          const itemName = match ? match[2] : itemStr;
+          return {
+            id: `vapi-item-${idx}`,
+            name: itemName,
+            price: 250, // mock fallback
+            category: "food" as const,
+            qty
+          };
+        });
+
+        setConv(prev => ({
+          ...prev,
+          cart: newCart.length > 0 ? newCart : prev.cart,
+          phase: "comparing_prices"
+        }));
+      }
+    },
+    []
+  );
+
   const {
     mode, status, volumeLevel,
     interimTranscript, finalTranscript,
@@ -106,6 +151,7 @@ export default function DemoPage() {
   } = useVoiceAssistant({
     defaultMode: "free",
     onVapiTranscript: handleVapiTranscript,
+    onVapiFunctionCall: handleVapiFunctionCall,
     onVapiCallEnd: handleVapiCallEnd,
   });
 
@@ -180,6 +226,73 @@ export default function DemoPage() {
     }
   }, [finalTranscript]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Handle comparing_prices Phase (GraphQL Side Effect) ───
+  useEffect(() => {
+    if (conv.phase === "comparing_prices" && !priceLoading) {
+      if (!conv.comparisonResult) {
+        const items = conv.cart.map((i) => i.name);
+        fetchPrices({ variables: { items } }).then(({ data }) => {
+          if (data && data.comparePrices) {
+            let bestTotal = 0;
+            let commonBestPlatform = "Zomato";
+
+            const totalMockCartOriginal = conv.cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+            data.comparePrices.forEach((res: any) => {
+              // We'll multiply the best price strictly by quantity from cart just to be accurate
+              const cartItem = conv.cart.find(c => c.name === res.itemName);
+              const qty = cartItem ? cartItem.qty : 1;
+              bestTotal += res.bestPrice * qty;
+              commonBestPlatform = res.bestPlatform; // fallback simple logic
+            });
+
+            const taxes = 45;
+            const discNew = conv.couponApplied ? Math.floor(bestTotal * 0.10) : 0;
+            const finalBestTotal = bestTotal + taxes - discNew;
+            
+            const discOld = conv.couponApplied ? Math.floor(totalMockCartOriginal * 0.10) : 0;
+            const finalOldTotal = totalMockCartOriginal + taxes - discOld;
+
+            let speakMsg = "";
+            let finalPlatform = "Meghana Foods Direct";
+            let actualTotal = finalOldTotal;
+
+            if (finalBestTotal < finalOldTotal) {
+              finalPlatform = commonBestPlatform;
+              actualTotal = finalBestTotal;
+              speakMsg = conv.lang === "hindi"
+                ? `Maine check kiya, ${commonBestPlatform} par yeh sirf ₹${finalBestTotal} ka hai, jo direct se sasta hai. Main order ${commonBestPlatform} se place kar raha hoon. Shukriya!`
+                : `Good news! Found a better deal on ${commonBestPlatform} for ₹${finalBestTotal}. I've placed your order there instead of the original ₹${finalOldTotal}. Thank you!`;
+            } else {
+              speakMsg = conv.lang === "hindi"
+                ? `Current order hi best price par hai ₹${finalOldTotal}. Order place ho gaya!`
+                : `Your current cart is already the lowest price at ₹${finalOldTotal}. Order placed successfully!`;
+            }
+
+            setConv((prev) => ({
+              ...prev,
+              phase: "done",
+              comparisonResult: {
+                platform: finalPlatform,
+                oldTotal: finalOldTotal,
+                newTotal: actualTotal,
+              },
+              messages: [...prev.messages, { role: "ai", text: speakMsg, ts: Date.now() }],
+            }));
+
+            if (mode === "vapi") {
+              stop(); // End the Vapi call seamlessly
+            }
+
+            speak(speakMsg, () => {
+              updateStatus("ordered");
+            });
+          }
+        });
+      }
+    }
+  }, [conv.phase, priceLoading, fetchPrices, speak, updateStatus, conv.cart, conv.couponApplied, conv.lang, conv.comparisonResult]);
+
   // ── Start handler ─────────────────────────────────────────
   const handleStart = useCallback(() => {
     const fresh = makeInitialState("english");
@@ -245,7 +358,7 @@ export default function DemoPage() {
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const taxes = cart.length > 0 ? 45 : 0;
   const disc = conv.couponApplied ? conv.discount : 0;
-  const total = subtotal + taxes - disc;
+  const total = conv.comparisonResult ? conv.comparisonResult.newTotal : (subtotal + taxes - disc);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#1E2230", fontFamily: "var(--font-poppins), sans-serif" }}>
@@ -380,9 +493,16 @@ export default function DemoPage() {
               {(status === "ordered" || conv.phase === "done") && (
                 <motion.div key="placed" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   style={{ background: "rgba(132,176,130,0.12)", border: "1px solid rgba(132,176,130,0.25)", borderRadius: 12 }}
-                  className="mt-3 flex items-center gap-2 px-3 py-2.5">
-                  <CheckCircle2 size={14} style={{ color: "#84B082" }} />
-                  <span className="text-xs font-semibold" style={{ color: "#84B082" }}>Order Placed!</span>
+                  className="mt-3 flex flex-col gap-2 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} style={{ color: "#84B082" }} />
+                    <span className="text-xs font-semibold" style={{ color: "#84B082" }}>Order Placed via {conv.comparisonResult?.platform || "Direct"}!</span>
+                  </div>
+                  {conv.comparisonResult && conv.comparisonResult.newTotal < conv.comparisonResult.oldTotal && (
+                    <div className="text-[10px]" style={{ color: "#84B082" }}>
+                      AI saved you ₹{conv.comparisonResult.oldTotal - conv.comparisonResult.newTotal} by switching platforms!
+                    </div>
+                  )}
                 </motion.div>
               )}
               {conv.phase === "confirming" && (
@@ -415,6 +535,7 @@ export default function DemoPage() {
                     {mode === "free" && conv.phase === "upselling"   && "Say yes or no to the suggestion"}
                     {mode === "free" && conv.phase === "confirming"  && "Say 'yes confirm' or 'no, change it'"}
                     {mode === "free" && conv.phase === "asking_coupon" && "Say 'yes' for coupon or 'no' to place order"}
+                    {mode === "free" && conv.phase === "comparing_prices" && "AI is comparing prices across platforms..."}
                     {mode === "free" && conv.phase === "greeting"    && "Ready to receive your order"}
                   </span>
                 </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ApolloProviderWrapper from "@/lib/ApolloProviderWrapper";
 
 export const metadata: Metadata = {
   title: "BolKeOrder — Voice Commerce for Bharat",
@@ -32,7 +33,9 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-bko-bg text-bko-text antialiased">
-        {children}
+        <ApolloProviderWrapper>
+          {children}
+        </ApolloProviderWrapper>
       </body>
     </html>
   );
