@@ -2,31 +2,285 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0A0F1E; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+/* ═══════════════════════════════════════════════════════════
+   LOCAL FONTS — Rosehot (display) & Quivert (body/heading)
+═══════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: "Rosehot";
+  src: url("/fonts/Rosehot.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
-/* Smooth scroll */
+@font-face {
+  font-family: "Quivert";
+  src: url("/fonts/Quivert.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CSS CUSTOM PROPERTIES
+═══════════════════════════════════════════════════════════ */
+:root {
+  --font-rosehot: "Rosehot";
+  --font-quivert:  "Quivert";
+  --c-espresso:    #130B05;
+  --c-walnut:      #1C1008;
+  --c-charcoal:    #0F1117;
+  --c-slate:       #0D111A;
+  --c-chocolate:   #14090A;
+  --c-teal-dk:     #071A17;
+  --c-burgundy:    #120610;
+  --c-gold:        #C9A84C;
+  --c-amber:       #A87B2A;
+  --c-orange:      #D45A1A;
+  --c-ivory:       #F2E8D5;
+  --c-cream:       #D6C9B0;
+  --c-muted:       #8C7A5E;
+  --c-dim:         #574535;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════════════════ */
 html { scroll-behavior: smooth; }
 
-/* Glassmorphism utility */
+body {
+  background-color: var(--c-espresso);
+  color: var(--c-ivory);
+  font-family: "Quivert", system-ui, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar          { width: 5px; }
+::-webkit-scrollbar-track    { background: var(--c-espresso); }
+::-webkit-scrollbar-thumb    { background: var(--c-amber); }
+::-webkit-scrollbar-thumb:hover { background: var(--c-gold); }
+
+h1, h2 { font-family: "Rosehot", serif; }
+h3, h4  { font-family: "Quivert", sans-serif; }
+
+/* ═══════════════════════════════════════════════════════════
+   SHARP CORNER BORDERS — no radius anywhere
+═══════════════════════════════════════════════════════════ */
+
+/* ── How It Works cards — dark charcoal/walnut per card ── */
+.card-step {
+  background: #111118;
+  border: 1px solid rgba(201,168,76,0.32);
+  border-top: 2px solid rgba(201,168,76,0.55);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55), inset 0 1px 0 rgba(201,168,76,0.08);
+  position: relative;
+  overflow: hidden;
+}
+.card-step-1 { background: #0F1118; }
+.card-step-2 { background: #0E110E; }
+.card-step-3 { background: #0E0F14; }
+
+/* ── Platform cards — dark slate ── */
+.card-platform {
+  background: #0D1118;
+  border: 1px solid rgba(201,168,76,0.28);
+  border-top: 2px solid rgba(201,168,76,0.45);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  position: relative;
+  overflow: hidden;
+}
+.card-platform:hover {
+  border-color: rgba(201,168,76,0.65);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.65), 0 0 0 1px rgba(201,168,76,0.15);
+}
+
+/* ── Testimonial cards — dark chocolate ── */
+.card-testimonial {
+  background: #120C0A;
+  border: 1px solid rgba(168,123,42,0.30);
+  border-top: 2px solid rgba(168,123,42,0.50);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(168,123,42,0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── General elevated card ── */
+.card-traditional {
+  background: #17100A;
+  border: 1px solid rgba(201,168,76,0.28);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  position: relative;
+}
+
+/* ── Matchbox-style double border ── */
+.matchbox-card {
+  background: #17100A;
+  border: 2px solid var(--c-gold);
+  box-shadow:
+    0 0 0 1px #3A2A12,
+    0 0 0 5px #17100A,
+    0 0 0 6px rgba(201,168,76,0.25),
+    0 12px 40px rgba(0,0,0,0.65);
+  position: relative;
+  overflow: hidden;
+}
+.matchbox-card::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(201,168,76,0.18);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Legacy glass — remapped ── */
 .glass {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(23,16,10,0.82);
+  border: 1px solid rgba(201,168,76,0.22);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
-
 .glass-elevated {
-  background: rgba(31, 41, 55, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(30,20,10,0.82);
+  border: 1px solid rgba(201,168,76,0.3);
 }
 
-/* Waveform bar animation stagger */
+/* ═══════════════════════════════════════════════════════════
+   NAVBAR
+═══════════════════════════════════════════════════════════ */
+.navbar-strip {
+  background: #0F0804;
+  border-bottom: 1px solid rgba(201,168,76,0.35);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.6);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTONS — orange ONLY here
+═══════════════════════════════════════════════════════════ */
+.btn-primary {
+  background: linear-gradient(135deg, #9B2E0B 0%, #D45A1A 100%);
+  color: #F2E8D5;
+  font-family: "Quivert", sans-serif;
+  border: 1px solid rgba(212,90,26,0.6);
+  padding: 0.75rem 1.75rem;
+  box-shadow: 0 4px 20px rgba(180,60,20,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.02em;
+}
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  transition: left 0.4s ease;
+}
+.btn-primary:hover::before { left: 100%; }
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(180,60,20,0.55);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--c-gold);
+  font-family: "Quivert", sans-serif;
+  border: 1px solid rgba(201,168,76,0.50);
+  padding: 0.75rem 1.75rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+.btn-secondary:hover {
+  background: rgba(201,168,76,0.08);
+  border-color: rgba(201,168,76,0.85);
+  transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BADGE / EYEBROW  — gold only, no orange
+═══════════════════════════════════════════════════════════ */
+.badge-traditional {
+  background: rgba(201,168,76,0.10);
+  border: 1px solid rgba(201,168,76,0.40);
+  color: #C9A84C;
+  font-family: "Quivert", sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DECORATIVE ELEMENTS
+═══════════════════════════════════════════════════════════ */
+.divider-indian {
+  width: 100%;
+  height: 38px;
+  background-image: url('/images/divider.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.60;
+  margin: 0.75rem 0;
+}
+
+.rule-gold {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.55) 20%, rgba(201,168,76,0.80) 50%, rgba(201,168,76,0.55) 80%, transparent);
+  margin: 0.75rem 0;
+}
+
+/* Corner flower */
+.ornament {
+  position: absolute;
+  color: var(--c-gold);
+  font-size: 1.1rem;
+  opacity: 0.55;
+  select: none;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* Text utilities */
+.text-festival {
+  background: linear-gradient(135deg, #D45A1A 0%, #C9A84C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gold {
+  color: var(--c-gold);
+}
+
+/* Platform tag */
+.platform-tag {
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.25);
+  padding: 0.18rem 0.55rem;
+  font-size: 0.65rem;
+  color: var(--c-amber);
+  font-family: "Quivert", sans-serif;
+  letter-spacing: 0.05em;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WAVEFORM
+═══════════════════════════════════════════════════════════ */
 .wave-bar:nth-child(1)  { animation-delay: 0s; }
 .wave-bar:nth-child(2)  { animation-delay: 0.1s; }
 .wave-bar:nth-child(3)  { animation-delay: 0.2s; }
@@ -39,3 +293,12 @@ html { scroll-behavior: smooth; }
 .wave-bar:nth-child(10) { animation-delay: 0.3s; }
 .wave-bar:nth-child(11) { animation-delay: 0.2s; }
 .wave-bar:nth-child(12) { animation-delay: 0.1s; }
+
+/* ═══════════════════════════════════════════════════════════
+   KEYFRAMES
+═══════════════════════════════════════════════════════════ */
+@keyframes wave    { 0%,100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes float   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes flicker { 0%,100% { opacity: 1; } 50% { opacity: 0.75; } }
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

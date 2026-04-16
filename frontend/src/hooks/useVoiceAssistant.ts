@@ -51,6 +51,7 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
   // Recognition
   // ---------------------------------------------------------------------------
   const safeStartRecognition = useCallback(() => {
+    console.log("TRYING TO START MIC");
     if (!recognitionRef.current) return;
     if (isRecognitionActiveRef.current) return; // already running
     if (statusRef.current !== "connected") return; // MUST be connected to start!
@@ -90,12 +91,13 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     const rec = new SR();
     // continuous: false avoids the Chrome silent-kill bug on localhost.
     // onend restarts it manually after each utterance — same UX, more stable.
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = "en-IN";
     rec.maxAlternatives = 1;
 
     rec.onstart = () => {
+      console.log("MIC STARTED");
       isRecognitionActiveRef.current = true;
     };
 
@@ -116,6 +118,7 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
     };
 
     rec.onresult = (event: any) => {
+      console.log("RESULT EVENT:", event);
       let interim = "";
       let newFinal = "";
 
@@ -152,26 +155,11 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
       // no-speech and network are recoverable — handled in onend
     };
 
-    rec.onend = () => {
-      isRecognitionActiveRef.current = false;
-      simulateVolume(false);
-
-      // Only restart if we're still supposed to be listening
-      if (statusRef.current !== "connected" || isSpeakingRef.current) return;
-
-      const delay =
-        lastErrorRef.current === "network" ? 1500
-        : lastErrorRef.current === "no-speech" ? 100
-        : 300; // default — gives Chrome time to reset audio pipeline
-
-      lastErrorRef.current = "";
-
-      restartTimerRef.current = setTimeout(() => {
-        if (statusRef.current === "connected" && !isSpeakingRef.current) {
-          safeStartRecognition();
-        }
-      }, delay);
-    };
+rec.onend = () => {
+  console.log("Recognition Ended");
+  isRecognitionActiveRef.current = false;
+  simulateVolume(false);
+};
 
     recognitionRef.current = rec;
   }, [simulateVolume, updateStatus, safeStartRecognition]);
@@ -202,22 +190,18 @@ export function useVoiceAssistant(defaultMode: AssistantMode = "free") {
       if (preferred) utt.voice = preferred;
 
       utt.onend = () => {
-        isSpeakingRef.current = false;
-        setTimeout(() => {
-          if (statusRef.current === "speaking") {
-            updateStatus("connected");
-          }
-          if (onEnd) {
-            onEnd();
-          } else {
-            // Give browser 600ms to fully release the audio output device
-            // before we ask for mic input — fixes the silent-kill loop
-            if (statusRef.current === "connected") {
-              safeStartRecognition();
-            }
-          }
-        }, 600);
-      };
+  isSpeakingRef.current = false;
+
+  updateStatus("connected"); // IMPORTANT
+
+  if (onEnd) {
+    onEnd();
+  } else {
+    setTimeout(() => {
+      safeStartRecognition();
+    }, 600);
+  }
+};
 
       utt.onerror = (e) => {
         console.warn("TTS error:", e.error);
