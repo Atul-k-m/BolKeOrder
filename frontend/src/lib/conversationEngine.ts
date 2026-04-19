@@ -1,7 +1,6 @@
 // ──────────────────────────────────────────────────────────────
-// BolKeOrder — Conversation Engine
-// Pure state-machine driven conversation logic.
-// Processes each new transcript and returns the next AI action.
+// BolKeOrder — Conversation Engine  (v2 — NLP-Enhanced)
+// Drives the state machine; now uses nlpLayer for pre-processing.
 // ──────────────────────────────────────────────────────────────
 
 import {
@@ -15,16 +14,25 @@ import {
   findMenuItemById,
 } from "@/data/menu";
 
+import {
+  normaliseTranscript,
+  getSmartFallback,
+  getAddedResponse,
+  getAnythingElse,
+} from "@/lib/nlpLayer";
+
+// ── Phase / State types ───────────────────────────────────────
+
 export type ConvPhase =
   | "idle"
-  | "greeting"       // AI said hello, listening for first item
-  | "ordering"       // Active ordering
-  | "upselling"      // AI suggested something, waiting for response
-  | "summarizing"    // AI reading back the full order (10s silence triggered this)
-  | "confirming"     // AI asked "Shall I confirm?" waiting for yes/no
-  | "asking_coupon"  // Confirmed, now asking for coupon
-  | "comparing_prices" // Querying GraphQL to compare platform prices
-  | "finalizing"     // All done
+  | "greeting"
+  | "ordering"
+  | "upselling"
+  | "summarizing"
+  | "confirming"
+  | "asking_coupon"
+  | "comparing_prices"
+  | "finalizing"
   | "done";
 
 export type Language = "english" | "hindi";
@@ -39,8 +47,10 @@ export type ConvState = {
   phase: ConvPhase;
   cart: CartItem[];
   lang: Language;
+  /** Name of the last item added — enables "make it two", "ek aur" etc. */
+  lastAddedItem?: string;
   lastAddedCategory?: string;
-  upsellPending?: string[]; // item IDs pending upsell
+  upsellPending?: string[];
   couponApplied: boolean;
   discount: number;
   messages: ConvMessage[];
@@ -53,182 +63,263 @@ export type ConvState = {
 
 export type ConvOutput = {
   newState: ConvState;
-  speak: string | null;    // TTS string for AI to say
+  speak: string | null;
   cartUpdated: boolean;
 };
 
-// ── Helpers ──────────────────────────────────────────────────
-
-function formatCartSummary(cart: CartItem[], lang: Language): string {
-  if (cart.length === 0) return lang === "hindi" ? "Abhi tak kuch nahi choose kiya." : "Your cart is empty.";
-
-  const lines = cart.map(i => `${i.qty > 1 ? i.qty + " × " : ""}${i.name}${i.notes ? ` (${i.notes})` : ""}`);
-  const total = calcTotal(cart);
-  const taxed = total + 45;
-
-  if (lang === "hindi") {
-    return `Aapka order hai: ${lines.join(", ")}. Kul amount ₹${taxed} hoga taxes ke saath. Kya main yeh order place kar doon?`;
-  }
-  return `Alright! Here is your order: ${lines.join("; ")}. The total comes to ₹${taxed} including taxes. Shall I go ahead and confirm it?`;
-}
+// ── Helpers ───────────────────────────────────────────────────
 
 function calcTotal(cart: CartItem[]): number {
   return cart.reduce((s, i) => s + i.price * i.qty, 0);
 }
 
-function addMessage(state: ConvState, role: "ai" | "user", text: string): ConvState {
+function formatCartSummary(cart: CartItem[], lang: Language): string {
+  if (cart.length === 0)
+    return lang === "hindi"
+      ? "Abhi tak aapne kuch nahi choose kiya."
+      : "Your cart is still empty.";
+
+  const lines = cart.map(
+    i => `${i.qty > 1 ? i.qty + " × " : ""}${i.name}${i.notes ? ` (${i.notes})` : ""}`
+  );
+  const total = calcTotal(cart) + 45;
+
+  if (lang === "hindi") {
+    return `Aapka order hai: ${lines.join(", ")}. Kul ₹${total} hoga taxes ke saath. Kya main yeh order place kar doon?`;
+  }
+  return `Alright! Your order: ${lines.join("; ")} — total ₹${total} with taxes. Shall I go ahead and confirm it?`;
+}
+
+function addMessage(
+  state: ConvState,
+  role: "ai" | "user",
+  text: string
+): ConvState {
   return {
     ...state,
     messages: [...state.messages, { role, text, ts: Date.now() }],
   };
 }
 
-// ── Greeting ─────────────────────────────────────────────────
-export function getGreeting(lang: Language): string {
-  if (lang === "hindi") {
-    return "Namaste! BolKeOrder mein aapka swagat hai. Aaj Meghana Foods se kya mangana chahenge? Main aapki poori help karunga.";
-  }
-  return "Hello! Welcome to BolKeOrder. I'm ordering from Meghana Foods today. What would you like to have? You can order any dish, and I'll add it right away.";
+// Randomly pick from an array of string variants
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// ── Core Processor ───────────────────────────────────────────
+// ── Greeting ──────────────────────────────────────────────────
+
+export function getGreeting(lang: Language): string {
+  if (lang === "hindi") {
+    return pick([
+      "Namaste! BolKeOrder mein aapka swagat hai. Aaj Meghana Foods se kya mangna chahenge? Main aapki poori madad karunga!",
+      "Jai ho! Main aapka BolKeOrder assistant hoon. Meghana Foods ka koi bhi dish boliye — main turant add kar dunga.",
+    ]);
+  }
+  return pick([
+    "Hello! Welcome to BolKeOrder. I'm here to take your order from Meghana Foods — just say what you'd like and I'll add it right away!",
+    "Hi there! I'm your BolKeOrder voice assistant. Tell me what you'd like from Meghana Foods today — biryani, dosa, anything at all!",
+  ]);
+}
+
+// ── Core Processor ────────────────────────────────────────────
+
 export function processTranscript(
   rawTranscript: string,
-  state: ConvState,
+  state: ConvState
 ): ConvOutput {
   const transcript = rawTranscript.trim();
   if (!transcript) return { newState: state, speak: null, cartUpdated: false };
 
-  const lower = transcript.toLowerCase();
-  let s = addMessage(state, "user", transcript);
+  // ── NLP Pre-processing ────────────────────────────────────
+  const nlp = normaliseTranscript(transcript, state.lastAddedItem);
+  const text = nlp.normalisedText;
+  const lower = text.toLowerCase();
+
+  let s = addMessage(state, "user", transcript); // log original
   let speak: string | null = null;
   let cartUpdated = false;
 
-  // ── Language switch detection ─────────────────────────────
-  if (lower.includes("hindi") || lower.includes("hindi mein") || lower.includes("hindi me bolo")) {
+  // ── Language switch (NLP intent or keyword) ───────────────
+  if (
+    nlp.intentOverride === "language_hindi" ||
+    lower.includes("hindi") ||
+    lower.includes("speak hindi")
+  ) {
     s = { ...s, lang: "hindi" };
-    speak = "Theek hai! Ab main Hindi mein bolunga. Toh kya mangwa rahe hain aap?";
+    speak = pick([
+      "Theek hai! Ab main Hindi mein bolunga. Kya mangwana hai?",
+      "Bilkul! Hindi mein baat karte hain. Kaunsa dish chahiye?",
+    ]);
     s = addMessage(s, "ai", speak);
     return { newState: s, speak, cartUpdated };
   }
-  if ((lower.includes("english") || lower.includes("english mein")) && s.lang !== "english") {
+  if (
+    nlp.intentOverride === "language_english" ||
+    (lower.includes("english") && s.lang !== "english")
+  ) {
     s = { ...s, lang: "english" };
-    speak = "Sure! Switching back to English. What would you like to add?";
+    speak = "Sure! Back to English. What would you like to add?";
     s = addMessage(s, "ai", speak);
     return { newState: s, speak, cartUpdated };
   }
 
   const lang = s.lang;
 
-  // ── Handle phase: upselling ──────────────────────────────
+  // ── Upselling phase ───────────────────────────────────────
   if (s.phase === "upselling") {
-    const conf = detectConfirmation(transcript);
-    const doneOrdering = detectDoneOrdering(transcript);
+    const conf = detectConfirmation(text);
+    const done = detectDoneOrdering(text);
 
     if (conf === "yes" && s.upsellPending?.length) {
       const item = findMenuItemById(s.upsellPending[0]);
       if (item) {
         const newCart = [...s.cart, { ...item, qty: 1 }];
-        s = { ...s, cart: newCart, phase: "ordering", upsellPending: undefined };
+        s = {
+          ...s,
+          cart: newCart,
+          phase: "ordering",
+          upsellPending: undefined,
+          lastAddedItem: item.name,
+          lastAddedCategory: item.category,
+        };
         cartUpdated = true;
-        speak = lang === "hindi"
-          ? `${item.name} add kar diya! ₹${item.price} ka. Aur kuch?`
-          : `Added ${item.name} for ₹${item.price}. Anything else you'd like?`;
+        speak =
+          lang === "hindi"
+            ? pick([
+                `${item.name} bhi add kar diya! ₹${item.price} ka. Aur kuch?`,
+                `Le lo ${item.name}! ${getAnythingElse("hindi")}`,
+              ])
+            : pick([
+                `Added ${item.name} for ₹${item.price} — good choice! ${getAnythingElse("english")}`,
+                `${item.name} is now on your order (₹${item.price}). ${getAnythingElse("english")}`,
+              ]);
         s = addMessage(s, "ai", speak);
         return { newState: s, speak, cartUpdated };
       }
     }
 
-    // Any form of "no" or "done" snaps out of upsell and moves to confirm
-    if (conf === "no" || doneOrdering) {
+    if (conf === "no" || done) {
       const summary = formatCartSummary(s.cart, lang);
       s = { ...s, phase: "confirming", upsellPending: undefined };
       s = addMessage(s, "ai", summary);
       return { newState: s, speak: summary, cartUpdated: false };
     }
 
-    // They might be adding a new item — fall through to item parsing below
+    // Fall through — they may be adding a different item
     s = { ...s, phase: "ordering", upsellPending: undefined };
   }
 
-  // ── Handle phase: summarizing / confirming ───────────────
+  // ── Summarizing / Confirming phase ────────────────────────
   if (s.phase === "summarizing" || s.phase === "confirming") {
-    const conf = detectConfirmation(transcript);
+    const conf = detectConfirmation(text);
     if (conf === "yes") {
       s = { ...s, phase: "asking_coupon" };
-      speak = lang === "hindi"
-        ? "Badiya! Kya aapke paas koi coupon code hai? Ya seedha order place karoon?"
-        : "Perfect! Do you have a coupon code to apply, or should I place the order now?";
+      speak =
+        lang === "hindi"
+          ? pick([
+              "Badiya! Kya aapke paas koi coupon code hai? Ya seedha order place karoon?",
+              "Perfect! Coupon apply karoon ya direct order bhejoon?",
+            ])
+          : pick([
+              "Perfect! Do you have a coupon code, or shall I place the order now?",
+              "Great! Got a discount coupon? Say yes to apply or no to go ahead.",
+            ]);
       s = addMessage(s, "ai", speak);
       return { newState: s, speak, cartUpdated };
     }
     if (conf === "no") {
       s = { ...s, phase: "ordering" };
-      speak = lang === "hindi"
-        ? "Okay, kya badalna chahte hain? Koi item remove karoon ya kuch aur add karoon?"
-        : "Of course! What would you like to change? You can add more items, remove something, or adjust quantities.";
+      speak =
+        lang === "hindi"
+          ? "Theek hai! Kya add karoon ya hataaoon?"
+          : "No problem! What would you like to change — add more, remove something?";
       s = addMessage(s, "ai", speak);
       return { newState: s, speak, cartUpdated };
     }
-    // If they kept talking — try to parse an item (they might be adding to order)
   }
 
-  // ── Handle phase: asking_coupon ──────────────────────────
+  // ── Asking coupon phase ───────────────────────────────────
   if (s.phase === "asking_coupon") {
-    const conf = detectConfirmation(transcript);
-    const hasCoupon = lower.includes("apply") || lower.includes("yes") || lower.includes("haan");
-    const noCoupon = lower.includes("no") || lower.includes("nahi") || lower.includes("skip") || lower.includes("directly");
+    const conf = detectConfirmation(text);
+    const hasCoupon =
+      lower.includes("apply") ||
+      lower.includes("yes") ||
+      lower.includes("haan");
+    const noCoupon =
+      lower.includes("no") ||
+      lower.includes("nahi") ||
+      lower.includes("skip") ||
+      lower.includes("directly") ||
+      lower.includes("place order");
 
     if (hasCoupon || conf === "yes") {
       const sub = calcTotal(s.cart);
-      const disc = Math.floor(sub * 0.10);
-      const total = sub + 45 - disc;
-      s = { ...s, phase: "comparing_prices", couponApplied: true, discount: disc };
-      speak = lang === "hindi"
-        ? `Coupon apply ho gaya! Aapne ₹${disc} bachaye. Ab main best price compare kar raha hoon.`
-        : `Coupon applied! You saved ₹${disc}. Give me a moment to find the best price across platforms...`;
+      const disc = Math.floor(sub * 0.1);
+      s = {
+        ...s,
+        phase: "comparing_prices",
+        couponApplied: true,
+        discount: disc,
+      };
+      speak =
+        lang === "hindi"
+          ? `Coupon apply ho gaya! Aapne ₹${disc} bachaye. Ab best price check kar raha hoon...`
+          : `Coupon applied! You saved ₹${disc}. Finding the best deal across platforms now...`;
       s = addMessage(s, "ai", speak);
       return { newState: { ...s, phase: "comparing_prices" }, speak, cartUpdated: false };
     }
+
     if (noCoupon || conf === "no") {
-      const total = calcTotal(s.cart) + 45;
       s = { ...s, phase: "comparing_prices", couponApplied: false };
-      speak = lang === "hindi"
-        ? `Theek hai. Ab main sab platforms par check karta hoon.`
-        : `Great! Let me compare prices to give you the best deal...`;
+      speak =
+        lang === "hindi"
+          ? "Theek hai. Ab main sab platforms par best price dhundh raha hoon..."
+          : "Got it! Let me compare prices to find your best deal...";
       s = addMessage(s, "ai", speak);
       return { newState: { ...s, phase: "comparing_prices" }, speak, cartUpdated: false };
     }
-    // Ambiguous response, re-ask
-    speak = lang === "hindi"
-      ? "Haan ya na? Coupon apply karoon?"
-      : "Just say yes if you have a coupon, or no to place the order now.";
+
+    // Ambiguous
+    speak =
+      lang === "hindi"
+        ? "Haan ya na? Coupon apply karoon?"
+        : "Just say yes if you have a coupon, or no to place the order now.";
     s = addMessage(s, "ai", speak);
     return { newState: s, speak, cartUpdated };
   }
 
-  // ── Handle remove intent ─────────────────────────────────
-  const removeId = detectRemoveIntent(transcript);
+  // ── Remove intent ─────────────────────────────────────────
+  const removeId = detectRemoveIntent(text);
   if (removeId) {
     const removed = s.cart.find(i => i.id === removeId);
     const newCart = s.cart.filter(i => i.id !== removeId);
     cartUpdated = newCart.length !== s.cart.length;
     s = { ...s, cart: newCart };
+
     if (removed && cartUpdated) {
-      speak = lang === "hindi"
-        ? `${removed.name} remove kar diya. Aur kuch badalna hai?`
-        : `Removed ${removed.name}. Is there anything else you'd like to change?`;
+      speak =
+        lang === "hindi"
+          ? pick([
+              `${removed.name} remove kar diya. Aur kuch?`,
+              `${removed.name} hata diya. Aur badlaav?`,
+            ])
+          : pick([
+              `Removed ${removed.name}. Anything else to change?`,
+              `${removed.name} is off your order. What else?`,
+            ]);
     } else {
-      speak = lang === "hindi" ? "Woh item cart mein nahi tha." : "That item wasn't in your cart.";
+      speak =
+        lang === "hindi"
+          ? "Woh item cart mein nahi tha."
+          : "That item wasn't in your cart.";
     }
     s = addMessage(s, "ai", speak);
     return { newState: s, speak, cartUpdated };
   }
 
-  // ── Handle item detection (ordering phase) ───────────────
-  // First check if user is signalling they are done ordering
+  // ── Done signal (while ordering) ─────────────────────────
   if (s.phase === "ordering") {
-    const doneSignal = detectDoneOrdering(transcript);
+    const doneSignal = detectDoneOrdering(text);
     if (doneSignal && s.cart.length > 0) {
       const summary = formatCartSummary(s.cart, lang);
       s = { ...s, phase: "confirming" };
@@ -236,87 +327,100 @@ export function processTranscript(
       return { newState: s, speak: summary, cartUpdated: false };
     }
     if (doneSignal && s.cart.length === 0) {
-      speak = lang === "hindi"
-        ? "Aapne abhi kuch order nahi kiya. Kya mangwana hai?"
-        : "You haven't added anything yet! What would you like to order?";
+      speak =
+        lang === "hindi"
+          ? "Aapne abhi kuch add nahi kiya. Kaunsa dish chahiye aapko?"
+          : "You haven't added anything yet! What would you like to order?";
       s = addMessage(s, "ai", speak);
       return { newState: s, speak, cartUpdated: false };
     }
   }
 
-  const parsed = parseItemFromTranscript(transcript);
+  // ── Item parsing (NLP-enhanced) ───────────────────────────
+  // Use the NLP-normalised text for parsing; fuzzy match may have
+  // injected a canonical keyword so parseItemFromTranscript finds it.
+  const parsed = parseItemFromTranscript(text);
+
   if (parsed) {
     const { item, qty, notes } = parsed;
+
+    // Log if fuzzy matching helped
+    if (nlp.fuzzyMatched) {
+      console.info(
+        `[NLP] Fuzzy match: "${nlp.fuzzyMatched.original}" → "${nlp.fuzzyMatched.matched}" (${item.name})`
+      );
+    }
+
     const existing = s.cart.findIndex(i => i.id === item.id);
     let newCart: CartItem[];
-    let itemAction = "";
 
     if (existing !== -1) {
-      // Update quantity
       newCart = s.cart.map((i, idx) =>
         idx === existing ? { ...i, qty: i.qty + qty } : i
       );
-      itemAction = lang === "hindi"
-        ? `${item.name} ki quantity ${qty} se badhaayi. Total ab ${newCart[existing].qty} ho gaya.`
-        : `Updated to ${newCart[existing]?.qty ?? qty} × ${item.name}.`;
+      const newQty = newCart[existing].qty;
+      speak =
+        lang === "hindi"
+          ? `${item.name} ki quantity ${newQty} ho gayi. ${getAnythingElse("hindi")}`
+          : `Updated to ${newQty} × ${item.name}. ${getAnythingElse("english")}`;
     } else {
       newCart = [...s.cart, { ...item, qty, notes: notes || undefined }];
-      const noteStr = notes ? ` (${notes})` : "";
-      const costNote = qty > 1 ? `₹${item.price} each, that's ₹${item.price * qty}` : `₹${item.price}`;
-      itemAction = lang === "hindi"
-        ? `${qty > 1 ? qty + " " : ""}${item.name}${noteStr} add kar diya. ${costNote} ka hai.`
-        : `Added ${qty > 1 ? qty + " × " : ""}${item.name}${noteStr} — ${costNote}.`;
+      speak = getAddedResponse(lang, item.name, qty, item.price, notes);
     }
 
-    s = { ...s, cart: newCart, phase: "ordering", lastAddedCategory: item.category };
+    s = {
+      ...s,
+      cart: newCart,
+      phase: "ordering",
+      lastAddedItem: item.name,
+      lastAddedCategory: item.category,
+    };
     cartUpdated = true;
 
-    // Check if we should upsell
+    // ── Upsell (60% chance, smarter — skip if upsell items already in cart) ──
     const upsell = UPSELL_SUGGESTIONS[item.category];
-    const upsellItems = upsell?.itemIds.filter(uid => !newCart.find(c => c.id === uid));
+    const upsellItems = upsell?.itemIds.filter(
+      uid => !newCart.find(c => c.id === uid)
+    );
 
-    if (upsellItems && upsellItems.length > 0 && Math.random() > 0.3) {
-      // 70% chance to upsell
+    if (upsellItems && upsellItems.length > 0 && Math.random() > 0.4) {
       s = { ...s, phase: "upselling", upsellPending: upsellItems };
-      speak = `${itemAction} ${upsell.text}`;
-    } else {
-      speak = lang === "hindi"
-        ? `${itemAction} Aur kuch mangwaoge?`
-        : `${itemAction} Anything else you'd like to add?`;
+      speak = `${speak} ${upsell.text}`;
     }
 
     s = addMessage(s, "ai", speak);
     return { newState: s, speak, cartUpdated };
   }
 
-  // ── Silence / "that's it" handled by caller via timeout ──
-  // Fallback response when nothing matched
-  const fallbacks: Record<Language, string[]> = {
-    english: [
-      "I didn't catch that — could you repeat which dish you'd like?",
-      "Sorry, I couldn't recognize that item. Try saying the dish name clearly.",
-      "Could you be a bit more specific? For example, say 'one chicken biryani' or 'two butter naan'.",
-    ],
-    hindi: [
-      "Mujhe samajh nahi aaya. Kaunsa dish chahiye?",
-      "Phir se boliye, kya order karna hai?",
-      "Dish ka naam clearly boliye, jaise 'ek chicken biryani' ya 'do butter naan'.",
-    ],
-  };
-  const fb = fallbacks[lang][Math.floor(Math.random() * fallbacks[lang].length)];
-  s = addMessage(s, "ai", fb);
-  return { newState: s, speak: fb, cartUpdated: false };
+  // ── Smart fallback (NLP-powered suggestion) ───────────────
+  speak = getSmartFallback(transcript, lang);
+
+  // If NLP found a suggestion, log it for debugging
+  if (nlp.suggestion) {
+    console.info(`[NLP] Suggestion: "${nlp.suggestion.name}" for input "${transcript}"`);
+  }
+
+  s = addMessage(s, "ai", speak);
+  return { newState: s, speak, cartUpdated: false };
 }
 
-// ── Silence trigger (call from page after 10s timeout) ───
+// ── Silence trigger ───────────────────────────────────────────
+
 export function triggerSilenceCheckout(state: ConvState): ConvOutput {
   let s = state;
   const lang = s.lang;
 
   if (s.cart.length === 0) {
-    const speak = lang === "hindi"
-      ? "Aapne abhi tak kuch order nahi kiya. Kya mangwana hai? Biryani, dosa, naan — jo bhi bolein!"
-      : "You haven't added anything yet! Go ahead and tell me what you'd like — biryani, dosa, naan, anything at all.";
+    const speak =
+      lang === "hindi"
+        ? pick([
+            "Aapne abhi tak kuch nahi mangwaya. Koi bhi dish ka naam boliye!",
+            "Kya sooch rahe hain? Biryani, dosa, naan — jo bhi pasand ho boliye!",
+          ])
+        : pick([
+            "You haven't ordered anything yet — go ahead, name any dish!",
+            "Still here! Tell me what you'd like — biryani, dosa, naan, anything from Meghana Foods.",
+          ]);
     s = addMessage(s, "ai", speak);
     return { newState: s, speak, cartUpdated: false };
   }
@@ -326,6 +430,8 @@ export function triggerSilenceCheckout(state: ConvState): ConvOutput {
   s = addMessage(s, "ai", summary);
   return { newState: s, speak: summary, cartUpdated: false };
 }
+
+// ── Initial state factory ─────────────────────────────────────
 
 export function makeInitialState(lang: Language = "english"): ConvState {
   return {

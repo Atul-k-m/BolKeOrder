@@ -1,6 +1,6 @@
 "use client";
 
-import { useVoiceAssistant, VapiTranscriptHandler } from "@/hooks/useVoiceAssistant";
+import { useVoiceAssistant, VapiTranscriptHandler, VapiFunctionCallHandler } from "@/hooks/useVoiceAssistant";
 import {
   processTranscript,
   triggerSilenceCheckout,
@@ -119,16 +119,19 @@ export default function DemoPage() {
       console.log("[Vapi Tool]", name, args);
       if (name === "complete_order") {
         const parsedItems = (args.items as string[]) || [];
-        const newCart = parsedItems.map((itemStr, idx) => {
+        const newCart: import("@/data/menu").CartItem[] = parsedItems.map((itemStr, idx) => {
           const match = itemStr.match(/^(\d+)\s+(.+)$/);
           const qty = match ? parseInt(match[1]) : 1;
           const itemName = match ? match[2] : itemStr;
           return {
             id: `vapi-item-${idx}`,
             name: itemName,
-            price: 250, // mock fallback
-            category: "food" as const,
-            qty
+            price: 250,
+            category: "snacks" as import("@/data/menu").MenuCategory,
+            isVeg: true,
+            description: "",
+            keywords: [],
+            qty,
           };
         });
 

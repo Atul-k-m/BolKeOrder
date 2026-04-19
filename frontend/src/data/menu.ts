@@ -238,6 +238,12 @@ export function detectConfirmation(text: string): "yes" | "no" | null {
   return null;
 }
 
+export function detectDoneOrdering(text: string): boolean {
+  const lower = text.toLowerCase();
+  const doneWords = ["that's it", "done", "bas", "ho gaya", "place order", "nothing else", "aur kuch nahi", "confirm", "bhejo"];
+  return doneWords.some(w => lower.includes(w));
+}
+
 export function findMenuItemById(id: string): MenuItem | undefined {
   return MENU.find(i => i.id === id);
 }

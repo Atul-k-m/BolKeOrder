@@ -2,518 +2,333 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef } from "react";
-import {
-  Phone,
-  Brain,
-  CheckCircle2,
-  ArrowRight,
-  Star,
-  Mic,
-  Code2,
-  Mail,
-  Sparkles,
-} from "lucide-react";
+import { motion } from "framer-motion";
+import { Mic, ArrowRight, Code2, Mail } from "lucide-react";
 
-// ── Animated Waveform (Rangoli-style colours) ──────────────
+// ── CSS-only section divider (diamond ornament on 1px line) ──────────────────
+function SectionDivider() {
+  return <div className="section-divider" />;
+}
+
+// ── Hero waveform (CSS-animated bars) ────────────────────────────────────────
 function Waveform() {
-  const colours = [
-    "linear-gradient(to top, #C0392B, #E8631A)",
-    "linear-gradient(to top, #E8631A, #F5A623)",
-    "linear-gradient(to top, #D4AF37, #F5A623)",
-    "linear-gradient(to top, #4A7C59, #1A7A6E)",
-    "linear-gradient(to top, #1A7A6E, #3D3B8E)",
-    "rgba(212,175,55,0.2)",
-  ];
   return (
-    <div className="flex items-end justify-center gap-1.5 h-16">
-      {Array.from({ length: 12 }).map((_, i) => (
-        <div
-          key={i}
-          className="wave-bar w-2 rounded-sm animate-wave"
-          style={{
-            animationDelay: `${i * 0.1}s`,
-            height: `${20 + Math.sin((i / 11) * Math.PI) * 40}px`,
-            background: colours[i % colours.length],
-          }}
-        />
+    <div className="waveform">
+      {[8, 14, 20, 16, 12, 20, 14, 8].map((h, i) => (
+        <div key={i} className="waveform-bar" style={{ height: `${h}px` }} />
       ))}
     </div>
   );
 }
 
-// ── Corner Flower ornament ─────────────────────────────────
-function CornerFlower({ className = "" }: { className?: string }) {
+// ── Inline SVG Step Icons — geometric, no images ─────────────────────────────
+
+/** बोलो — rotary phone circle with dial holes */
+function RotaryPhoneIcon() {
+  const dialAngles = [0, 60, 120, 180, 240, 300];
   return (
-    <span
-      className={`absolute text-bko-gold opacity-60 select-none pointer-events-none ${className}`}
-      style={{ fontSize: "1.4rem", lineHeight: 1 }}
-    >
-      ✿
-    </span>
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <circle cx="16" cy="16" r="12.5" stroke="#C1440E" strokeWidth="1.5" />
+      <circle cx="16" cy="16" r="5"    stroke="#C1440E" strokeWidth="1.5" />
+      {dialAngles.map((deg) => {
+        const rad = (deg * Math.PI) / 180;
+        return (
+          <circle
+            key={deg}
+            cx={16 + 8.5 * Math.cos(rad)}
+            cy={16 + 8.5 * Math.sin(rad)}
+            r="1.1"
+            fill="#C1440E"
+          />
+        );
+      })}
+      {/* handset ear + mouth */}
+      <path d="M11 10 C9.5 12 9.5 14.5 11 16" stroke="#C1440E" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M21 10 C22.5 12 22.5 14.5 21 16" stroke="#C1440E" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
   );
 }
 
-// ── Traditional section divider ────────────────────────────
-function Divider() {
+/** समझो — sound-wave vertical bars */
+function SoundWaveIcon() {
+  const bars: [number, number, number][] = [
+    [5,  9, 23],
+    [9,  7, 25],
+    [13, 5, 27],
+    [17, 5, 27],
+    [21, 7, 25],
+    [25, 9, 23],
+  ];
   return (
-    <div className="flex items-center gap-4 my-2 px-2">
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent to-bko-gold/50" />
-      <span className="text-bko-gold text-xl opacity-80">✦</span>
-      <span className="text-bko-saffron text-lg opacity-60">❁</span>
-      <span className="text-bko-gold text-xl opacity-80">✦</span>
-      <div className="flex-1 h-px bg-gradient-to-l from-transparent to-bko-gold/50" />
-    </div>
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      {bars.map(([x, y1, y2], i) => (
+        <line
+          key={i}
+          x1={x} y1={y1} x2={x} y2={y2}
+          stroke="#C1440E"
+          strokeWidth={i === 2 || i === 3 ? "2.5" : "2"}
+          strokeLinecap="round"
+          opacity={i === 0 || i === 5 ? "0.55" : "1"}
+        />
+      ))}
+    </svg>
   );
 }
 
-// ── Data ──────────────────────────────────────────────────
-const PLATFORMS = [
+/** मंगाओ — tiffin dabba: two stacked rounded rectangles + handle */
+function TiffinIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      {/* handle */}
+      <path
+        d="M13 9 L13 7 Q16 5 19 7 L19 9"
+        stroke="#C1440E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+      />
+      {/* top box */}
+      <rect x="8" y="9"  width="16" height="7" rx="2.5" stroke="#C1440E" strokeWidth="1.5" />
+      {/* bottom box */}
+      <rect x="8" y="17" width="16" height="7" rx="2.5" stroke="#C1440E" strokeWidth="1.5" />
+      {/* separator clip line */}
+      <line x1="7" y1="16" x2="25" y2="16" stroke="#C1440E" strokeWidth="1" opacity="0.35" />
+    </svg>
+  );
+}
+
+// ── Data ──────────────────────────────────────────────────────────────────────
+const STEPS = [
   {
-    name: "Swiggy",
-    emoji: "🛵",
-    tagline: "Food Delivery",
-    color: "#E8631A",
-    border: "border-bko-saffron/40",
-    glow: "shadow-saffron",
+    Icon: RotaryPhoneIcon, numeral: "01", hindi: "बोलो", sublabel: "User Calls",
+    desc: "Elderly user calls a regular phone number — no app, no smartphone, no typing needed.",
   },
   {
-    name: "Zomato",
-    emoji: "🍽️",
-    tagline: "Restaurant Orders",
-    color: "#C0392B",
-    border: "border-bko-crimson/40",
-    glow: "shadow-crimson",
+    Icon: SoundWaveIcon, numeral: "02", hindi: "समझो", sublabel: "AI Understands",
+    desc: "Vapi + GPT-4o parses vernacular speech, extracts full order intent in Hindi, Kannada, Tamil, Telugu.",
   },
   {
-    name: "Zepto",
-    emoji: "⚡",
-    tagline: "10-Min Grocery",
-    color: "#3D3B8E",
-    border: "border-bko-indigo/40",
-    glow: "shadow-gold",
-  },
-  {
-    name: "BigBasket",
-    emoji: "🧺",
-    tagline: "Grocery & More",
-    color: "#4A7C59",
-    border: "border-bko-leaf/40",
-    glow: "shadow-gold",
+    Icon: TiffinIcon, numeral: "03", hindi: "मंगाओ", sublabel: "Order Placed",
+    desc: "Cart confirmed, platform API called, confirmation SMS sent — all in under 30 seconds.",
   },
 ];
 
 const TESTIMONIALS = [
   {
-    name: "Ramaiah K.",
-    age: 72,
-    city: "Bengaluru",
-    lang: "ಕನ್ನಡ",
-    avatar: "ರ",
-    review:
-      "Pehle smartphone use karna bahut mushkil tha. Ab bas bolta hoon aur order ho jaata hai!",
-    color: "from-bko-saffron/20 to-bko-saffron/5",
+    initials: "R", name: "Ramaiah K.", age: 72, city: "Bengaluru", lang: "ಕನ್ನಡ",
+    review: "Pehle smartphone use karna bahut mushkil tha. Ab bas bolta hoon aur order ho jaata hai!",
   },
   {
-    name: "Savitri D.",
-    age: 68,
-    city: "Chennai",
-    lang: "தமிழ்",
-    avatar: "ச",
-    review:
-      "Naan phone-il pesivittu biryani vanguvom. Romba easy-a irukku! Vandhanam!",
-    color: "from-bko-crimson/20 to-bko-crimson/5",
+    initials: "S", name: "Savitri D.", age: 68, city: "Chennai", lang: "தமிழ்",
+    review: "Naan phone-il pesivittu biryani vanguvom. Romba easy-a irukku! Vandhanam!",
   },
   {
-    name: "Murugan S.",
-    age: 74,
-    city: "Mysuru",
-    lang: "English",
-    avatar: "M",
-    review:
-      "My grandson set it up. Now I just call and food comes home. God bless this idea!",
-    color: "from-bko-peacock/20 to-bko-peacock/5",
+    initials: "M", name: "Murugan S.", age: 74, city: "Mysuru", lang: "English",
+    review: "My grandson set it up. Now I just call and food comes home. God bless this idea!",
   },
 ];
 
-const STEPS = [
-  {
-    icon: Phone,
-    step: "01",
-    title: "बोलो",
-    subtitle: "User Calls",
-    desc: "Elderly user calls a regular phone number — no app, no smartphone, no typing needed.",
-    accent: "text-bko-saffron",
-    border: "border-bko-saffron/40",
-    bg: "from-bko-saffron/15 to-transparent",
-  },
-  {
-    icon: Brain,
-    step: "02",
-    title: "समझो",
-    subtitle: "AI Understands",
-    desc: "Vapi + GPT-4o parses vernacular speech, extracts full order intent in Hindi, Kannada, Tamil, Telugu.",
-    accent: "text-bko-turmeric",
-    border: "border-bko-turmeric/40",
-    bg: "from-bko-turmeric/15 to-transparent",
-  },
-  {
-    icon: CheckCircle2,
-    step: "03",
-    title: "मंगाओ",
-    subtitle: "Order Placed",
-    desc: "Cart confirmed, platform API called, confirmation SMS sent — all in under 30 seconds.",
-    accent: "text-bko-peacock",
-    border: "border-bko-peacock/40",
-    bg: "from-bko-peacock/15 to-transparent",
-  },
+const PLATFORMS = [
+  { name: "Swiggy",    emoji: "🛵", color: "#E8631A" },
+  { name: "Zomato",    emoji: "🍽️", color: "#C0392B" },
+  { name: "Zepto",     emoji: "⚡",  color: "#3D3B8E" },
+  { name: "BigBasket", emoji: "🧺", color: "#4A7C59" },
+  { name: "Dunzo",     emoji: "🚴", color: "#D4841A" },
+  { name: "Blinkit",   emoji: "⚡",  color: "#F5A623" },
 ];
 
 const TECH = ["Next.js 14", "FastAPI", "GraphQL", "Qdrant", "Vapi.ai", "GPT-4o"];
 
-// ── Main Component ─────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 80]);
-
   return (
-    <div className="min-h-screen bg-bko-bg text-bko-text overflow-x-hidden">
+    <div style={{ minHeight: "100vh", background: "#F5EDD8", overflowX: "hidden" }}>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════
           NAVBAR
-      ══════════════════════════════════════ */}
-      <header className="sticky top-0 z-50 navbar-strip">
-        {/* Top accent strip */}
-        <div className="h-1 w-full bg-festival-gradient" />
-
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-10 h-10 rounded-sm overflow-hidden border border-bko-gold/40 shadow-gold">
-              <Image
-                src="/images/logo_bko.png"
-                alt="BolKeOrder Logo"
-                fill
-                className="object-cover"
-              />
+      ════════════════ */}
+      <header className="bko-nav">
+        <div className="bko-nav-inner">
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
+            <div style={{
+              position: "relative", width: "36px", height: "36px",
+              borderRadius: "4px", overflow: "hidden",
+              border: "1px solid rgba(193,68,14,0.35)", flexShrink: 0,
+            }}>
+              <Image src="/images/logo_bko.png" alt="BolKeOrder logo" fill style={{ objectFit: "cover" }} />
             </div>
             <div>
-              <span
-                className="font-rosehot text-xl text-bko-gold block leading-tight"
-                style={{ fontFamily: "Rosehot, serif" }}
-              >
-                BolKeOrder
-              </span>
-              <span className="text-[0.6rem] text-bko-muted tracking-widest uppercase">
-                Voice Commerce · भारत
-              </span>
+              <span className="bko-nav-logo-name">BolKeOrder</span>
+              <span className="bko-nav-logo-sub">Voice Commerce · भारत</span>
             </div>
           </Link>
 
-          {/* Nav links */}
-          <nav className="hidden md:flex items-center gap-7 font-quivert text-sm text-bko-muted">
-            {[
-              { href: "#how", label: "How it Works" },
-              { href: "#platforms", label: "Platforms" },
-              { href: "#stories", label: "Stories" },
-            ].map(({ href, label }) => (
-              <a
-                key={href}
-                href={href}
-                className="relative hover:text-bko-turmeric transition-colors after:absolute after:bottom-0 after:left-0 after:w-0 hover:after:w-full after:h-px after:bg-bko-gold after:transition-all"
-              >
-                {label}
-              </a>
-            ))}
-          </nav>
+          <ul className="bko-nav-links">
+            <li><a href="#how">How it Works</a></li>
+            <li><a href="#platforms">Platforms</a></li>
+            <li><a href="#stories">Stories</a></li>
+          </ul>
 
-          {/* CTAs */}
-          <div className="flex items-center gap-3">
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             <Link
               href="/dashboard"
-              className="text-sm text-bko-muted hover:text-bko-turmeric transition-colors hidden sm:block"
+              style={{ fontFamily: "var(--ff-body)", fontSize: "0.875rem", color: "var(--c-muted)", textDecoration: "none" }}
             >
               Sign in
             </Link>
-            <Link href="/demo" className="btn-primary text-sm py-2 px-5">
-              <Mic size={14} />
-              Open App Container
+            <Link href="/demo" className="btn-primary" style={{ fontSize: "0.875rem", padding: "9px 20px" }}>
+              <Mic size={14} /> Open App
             </Link>
           </div>
         </div>
       </header>
 
-      {/* ══════════════════════════════════════
-          HERO
-      ══════════════════════════════════════ */}
-      <section
-        ref={heroRef}
-        className="relative min-h-[92vh] flex items-center justify-center overflow-hidden"
-      >
-        {/* Full-bleed hero image */}
-        <motion.div
-          style={{ y: heroY }}
-          className="absolute inset-0 z-0"
-        >
+      {/* ════════════════════════════════════════════
+          GEMINI CALL 1 — HERO
+          Mughal miniature background at 12% opacity
+      ════════════════════════════════════════════ */}
+      <section className="hero-section">
+        <div className="hero-bg">
           <Image
-            src="/images/hero_banner.png"
-            alt="Indian traditional decorative banner"
+            src="/images/hero_bg_mughal.png"
+            alt=""
             fill
             priority
-            className="object-cover object-center opacity-25"
+            style={{ objectFit: "cover", objectPosition: "center", opacity: 0.12 }}
           />
-          {/* Gradient overlay to keep text readable */}
-          <div className="absolute inset-0 bg-gradient-to-b from-bko-bg/70 via-bko-bg/60 to-bko-bg" />
-        </motion.div>
+        </div>
 
-        {/* Decorative radial glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-bko-saffron/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/3 w-[400px] h-[400px] bg-bko-crimson/5 rounded-full blur-[80px] pointer-events-none" />
+        <motion.div
+          className="hero-content"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <span className="hero-eyebrow">🇮🇳  Voice Commerce for Bharat</span>
 
-        {/* Hero content */}
-        <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
+          <h1 className="hero-headline">
+            बोलो, हम<br />order करेंगे
+          </h1>
 
-          {/* Eyebrow badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex justify-center mb-8"
-          >
-            <span className="badge-traditional">
-              <Sparkles size={12} className="text-bko-turmeric" />
-              Voice Commerce for Bharat · Powered by Vapi + GPT-4o
-              <Sparkles size={12} className="text-bko-turmeric" />
-            </span>
-          </motion.div>
-
-          {/* Main headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            style={{ fontFamily: "Rosehot, serif" }}
-            className="text-6xl md:text-8xl leading-tight mb-4"
-          >
-            <span className="text-bko-ivory block">बोलो,</span>
-            <span
-              className="block"
-              style={{
-                background: "linear-gradient(135deg, #E8631A 0%, #F5A623 40%, #D4AF37 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              हम order
-            </span>
-            <span className="text-bko-ivory block">करेंगे</span>
-          </motion.h1>
-
-          {/* Sub-headline */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-bko-muted text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
+          <p className="hero-sub">
             Just say it. We&apos;ll handle the rest. Voice-first ordering for every
             Indian — Hindi, Kannada, Tamil, Telugu, and more.
-          </motion.p>
+          </p>
 
-          {/* Waveform matchbox card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 }}
-            className="matchbox-card max-w-xs mx-auto mb-10 p-6"
-          >
-            <CornerFlower className="top-3 left-3" />
-            <CornerFlower className="top-3 right-3" />
-            <Waveform />
-            <Divider />
-            <p
-              className="text-xs text-bko-muted mt-1 text-center"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
-              &ldquo;Ek chicken biryani aur do roti mangwa do…&rdquo;
-            </p>
-          </motion.div>
-
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            <Link href="/demo" className="btn-primary text-base px-8 py-3.5">
-              <Phone size={16} />
-              Open App Container
+          <div className="hero-btns">
+            <Link href="/demo" className="btn-primary">
+              <Mic size={16} /> Try Voice Demo
             </Link>
-            <Link href="/dashboard" className="btn-secondary text-base px-8 py-3.5">
-              Operator Dashboard
-              <ArrowRight size={16} />
+            <Link href="/dashboard" className="btn-secondary">
+              Operator Dashboard <ArrowRight size={16} />
             </Link>
-          </motion.div>
-
-          {/* Social proof */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="text-xs text-bko-dim mt-8"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
-            ✦ The Universal Voice Platform Container ✦
-          </motion.p>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          HOW IT WORKS
-      ══════════════════════════════════════ */}
-      <section id="how" className="py-24 relative overflow-hidden">
-
-        {/* Background pattern layer */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.03]"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "200px" }}
-        />
-
-        <div className="relative z-10 max-w-5xl mx-auto px-6">
-          <div className="text-center mb-6">
-            <span className="badge-traditional mb-4 inline-flex">कैसे काम करता है</span>
-            <h2
-              className="text-5xl text-bko-ivory mt-4 mb-3"
-              style={{ fontFamily: "Rosehot, serif" }}
-            >
-              How It Works
-            </h2>
-            <p className="text-bko-muted" style={{ fontFamily: "Quivert, sans-serif" }}>
-              Three steps. Thirty seconds. Delivered.
-            </p>
           </div>
 
-          <div className="divider-indian" />
+          <div className="hero-social-proof">
+            <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Waveform />
+              <em>&ldquo;Ek chicken biryani aur do roti mangwa do…&rdquo;</em>
+            </span>
+            <span>✦ No app needed · Just call</span>
+          </div>
+        </motion.div>
+      </section>
 
-          <div className="grid md:grid-cols-3 gap-6 mt-10">
-            {STEPS.map(({ icon: Icon, step, title, subtitle, desc, accent, border, bg }, i) => (
+      <SectionDivider />
+
+      {/* ════════════════════
+          HOW IT WORKS
+      ════════════════════ */}
+      <section id="how" className="how-section">
+        <div className="section-inner">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="section-heading">How It Works</h2>
+            <p className="section-sub">Three steps. Thirty seconds. Delivered.</p>
+          </motion.div>
+
+          <div className="steps-grid">
+            {STEPS.map(({ Icon, numeral, hindi, sublabel, desc }, i) => (
               <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
+                key={numeral}
+                className="step-card"
+                initial={{ opacity: 0, y: 36 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.12 }}
+                transition={{ delay: i * 0.13, duration: 0.4 }}
                 viewport={{ once: true }}
-                className={`matchbox-card p-7 text-center bg-gradient-to-b ${bg}`}
               >
-                <CornerFlower className="top-3 left-3" />
-                <CornerFlower className="top-3 right-3" />
-
-                {/* Step number */}
-                <div
-                  className="text-6xl font-bold text-bko-gold/10 absolute top-4 right-6 select-none"
-                  style={{ fontFamily: "Rosehot, serif" }}
-                >
-                  {step}
+                <div className="step-numeral">{numeral}</div>
+                <div className="step-icon-wrapper">
+                  <div className="step-icon-circle">
+                    <Icon />
+                  </div>
                 </div>
-
-                {/* Icon */}
-                <div
-                  className={`w-16 h-16 rounded-sm border ${border} flex items-center justify-center mx-auto mb-4 bg-bko-surface/80`}
-                >
-                  <Icon size={26} className={accent} />
-                </div>
-
-                {/* Hindi + English title */}
-                <h3
-                  className={`text-3xl ${accent} mb-0.5`}
-                  style={{ fontFamily: "Rosehot, serif" }}
-                >
-                  {title}
-                </h3>
-                <p className="text-xs text-bko-muted uppercase tracking-widest mb-3">
-                  {subtitle}
-                </p>
-                <p
-                  className="text-sm text-bko-muted leading-relaxed"
-                  style={{ fontFamily: "Quivert, sans-serif" }}
-                >
-                  {desc}
-                </p>
+                <p className="step-hindi">{hindi}</p>
+                <p className="step-sublabel">{sublabel}</p>
+                <p className="step-desc">{desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          DADI ILLUSTRATION FEATURE STRIP
-      ══════════════════════════════════════ */}
-      <section className="py-16 bg-bko-surface/30 border-y border-bko-gold/15 relative overflow-hidden">
-        <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center gap-12">
-          {/* Illustration */}
+      <SectionDivider />
+
+      {/* ════════════════════════════════════════════════════════════
+          GEMINI CALL 2 — DADI SECTION
+          Using existing dadi_illustration.png (Madhubani-style art)
+          Regenerate when quota resets for full Madhubani version
+      ════════════════════════════════════════════════════════════ */}
+      <section className="dadi-section">
+        <div className="dadi-inner">
+
+          {/* Left — illustration */}
           <motion.div
-            initial={{ opacity: 0, x: -40 }}
+            className="dadi-illustration-wrap"
+            initial={{ opacity: 0, x: -44 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="md:w-1/2 flex justify-center"
+            transition={{ duration: 0.5 }}
           >
-            <div className="matchbox-card p-3 max-w-[320px] w-full animate-float">
+            <div className="dadi-illustration-frame">
               <Image
                 src="/images/dadi_illustration.png"
-                alt="Elderly Indian grandmother ordering food by phone"
-                width={320}
-                height={320}
-                className="w-full h-auto rounded-sm"
+                alt="Indian grandmother ordering food by phone — Madhubani folk illustration"
+                width={500}
+                height={600}
+                style={{ width: "100%", height: "auto", display: "block" }}
               />
             </div>
           </motion.div>
 
-          {/* Text */}
+          {/* Right — text + stats */}
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
+            className="dadi-text-col"
+            initial={{ opacity: 0, x: 44 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="md:w-1/2"
+            transition={{ duration: 0.5 }}
           >
-            <span className="badge-traditional mb-4 inline-flex">Built for Bharat</span>
-            <h2
-              className="text-4xl text-bko-ivory mt-4 mb-4"
-              style={{ fontFamily: "Rosehot, serif" }}
-            >
-              Technology that cares for
-              <span className="text-festival block"> every generation</span>
+            <h2 className="dadi-heading">
+              Technology that cares<br />
+              <em>for every generation</em>
             </h2>
-            <p
-              className="text-bko-muted leading-relaxed mb-6"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
+            <p className="dadi-body">
               India has over 138 million senior citizens. Many own a basic phone but
               struggle with modern apps. BolKeOrder bridges this gap — just one call
-              in their mother tongue, and food comes home.
+              in their mother tongue, and food comes home within minutes.
             </p>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-6">
+            <div className="stats-row">
               {[
-                { value: "138M+", label: "Senior Citizens" },
-                { value: "12+", label: "Languages" },
-                { value: "30s", label: "To Order" },
+                { value: "138M", label: "Senior Citizens" },
+                { value: "12+",  label: "Languages"       },
+                { value: "30s",  label: "To Order"        },
               ].map(({ value, label }) => (
-                <div key={label} className="text-center card-traditional p-4">
-                  <div
-                    className="text-2xl text-bko-gold mb-1"
-                    style={{ fontFamily: "Rosehot, serif" }}
-                  >
-                    {value}
-                  </div>
-                  <div className="text-xs text-bko-muted" style={{ fontFamily: "Quivert, sans-serif" }}>
-                    {label}
-                  </div>
+                <div key={label} className="stat-block">
+                  <span className="stat-value">{value}</span>
+                  <span className="stat-label">{label}</span>
                 </div>
               ))}
             </div>
@@ -521,171 +336,110 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          PLATFORMS
-      ══════════════════════════════════════ */}
-      <section id="platforms" className="py-24 relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.025]"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "200px" }}
-        />
+      <SectionDivider />
 
-        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-          <span className="badge-traditional mb-4 inline-flex">Supported Platforms</span>
-          <h2
-            className="text-5xl text-bko-ivory mt-4 mb-3"
-            style={{ fontFamily: "Rosehot, serif" }}
-          >
-            Your Favourite Apps
-          </h2>
-          <p
-            className="text-bko-muted mb-4 text-sm"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
-            Ordering via mock adapters today. Real integrations coming very soon.
-          </p>
+      {/* ════════════════════════════════════════════════════════════
+          GEMINI CALL 3 — PLATFORMS SECTION
+          Bazaar bg: using geometric CSS pattern (quota exhausted)
+          — regenerate with bazaar_bg.png when quota resets
+      ════════════════════════════════════════════════════════════ */}
+      <section id="platforms" className="platforms-section">
+        <div className="platforms-bg-css" aria-hidden="true" />
 
-          <div className="divider-indian" />
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10">
-            {PLATFORMS.map(({ name, emoji, tagline, color, border }, i) => (
-              <motion.div
-                key={name}
-                initial={{ opacity: 0, scale: 0.85 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.08 }}
-                viewport={{ once: true }}
-                whileHover={{ scale: 1.05, y: -4 }}
-                className={`matchbox-card p-6 flex flex-col items-center gap-3 cursor-default relative`}
-              >
-                <CornerFlower className="top-2 left-2" style={{ fontSize: "0.9rem" }} />
-                <CornerFlower className="top-2 right-2" style={{ fontSize: "0.9rem" }} />
-
-                <div
-                  className="text-4xl"
-                  style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))" }}
-                >
-                  {emoji}
-                </div>
-                <p
-                  className="font-bold text-bko-ivory text-sm"
-                  style={{ fontFamily: "Quivert, sans-serif", color }}
-                >
-                  {name}
-                </p>
-                <p className="text-xs text-bko-muted">{tagline}</p>
-                <span className="platform-tag">Mock Mode</span>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Swiggy label art strip */}
+        <div className="platforms-inner">
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mt-10 matchbox-card p-4 max-w-sm mx-auto overflow-hidden"
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="section-heading">Your Favourite Apps</h2>
+            <p className="section-sub">
+              Ordering via mock adapters today. Real integrations coming very soon.
+            </p>
+          </motion.div>
+
+          {/* Center card with folk-art illustration */}
+          <motion.div
+            className="platforms-card"
+            initial={{ opacity: 0, y: 32 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
           >
             <Image
               src="/images/swiggy_label.png"
-              alt="Traditional delivery illustration"
-              width={360}
-              height={200}
-              className="w-full h-auto rounded-sm"
+              alt="Traditional Indian delivery illustration"
+              width={480}
+              height={260}
+              style={{ width: "100%", height: "auto", borderRadius: "6px", marginBottom: "16px", display: "block" }}
             />
+            <p className="platforms-card-caption">
+              One call. Multiple platforms. Best price auto-selected.
+            </p>
+          </motion.div>
+
+          {/* Platform logo strip — 60% opacity, 40px gap */}
+          <motion.div
+            className="platform-logos"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 0.6 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+          >
+            {PLATFORMS.map(({ name, emoji, color }) => (
+              <div key={name} className="platform-logo-item">
+                <span className="emoji">{emoji}</span>
+                <span style={{ color }}>{name}</span>
+              </div>
+            ))}
           </motion.div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          TESTIMONIALS
-      ══════════════════════════════════════ */}
-      <section
-        id="stories"
-        className="py-24 bg-bko-surface/30 border-y border-bko-gold/15 relative overflow-hidden"
-      >
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.03]"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "200px" }}
-        />
+      <SectionDivider />
 
-        <div className="relative z-10 max-w-5xl mx-auto px-6">
-          <div className="text-center mb-6">
-            <span className="badge-traditional mb-4 inline-flex">असली कहानियाँ</span>
-            <h2
-              className="text-5xl text-bko-ivory mt-4 mb-3"
-              style={{ fontFamily: "Rosehot, serif" }}
-            >
-              Real Stories
-            </h2>
-            <p className="text-bko-muted" style={{ fontFamily: "Quivert, sans-serif" }}>
-              From the people we built this for.
-            </p>
-          </div>
+      {/* ════════════════════
+          REAL STORIES
+      ════════════════════ */}
+      <section id="stories" className="stories-section">
+        <div className="section-inner">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="section-heading">Real Stories</h2>
+            <p className="section-sub">From the people we built this for.</p>
+          </motion.div>
 
-          <div className="divider-indian" />
-
-          <div className="grid md:grid-cols-3 gap-6 mt-10">
-            {TESTIMONIALS.map(({ name, age, city, lang, avatar, review, color }, i) => (
+          <div className="testimonials-grid">
+            {TESTIMONIALS.map(({ initials, name, age, city, lang, review }, i) => (
               <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30 }}
+                key={name}
+                className={`testimonial-card ${i % 2 === 0 ? "odd" : "even"}`}
+                initial={{ opacity: 0, y: 32 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.12 }}
+                transition={{ delay: i * 0.11, duration: 0.4 }}
                 viewport={{ once: true }}
-                className={`matchbox-card p-6 flex flex-col gap-4 bg-gradient-to-b ${color}`}
               >
-                <CornerFlower className="top-3 left-3" />
-                <CornerFlower className="top-3 right-3" />
-
-                {/* Stars */}
-                <div className="flex gap-0.5 justify-center">
-                  {Array(5)
-                    .fill(0)
-                    .map((_, j) => (
-                      <Star
-                        key={j}
-                        size={13}
-                        className="fill-bko-gold text-bko-gold animate-flicker"
-                        style={{ animationDelay: `${j * 0.2}s` }}
-                      />
-                    ))}
-                </div>
-
-                <p
-                  className="text-sm text-bko-muted leading-relaxed italic text-center flex-1"
-                  style={{ fontFamily: "Quivert, sans-serif" }}
-                >
-                  &ldquo;{review}&rdquo;
-                </p>
-
-                <div className="rule-gold" style={{ margin: "0.5rem 0" }} />
-
-                <div className="flex items-center gap-3">
-                  {/* Devanagari avatar */}
-                  <div
-                    className="w-10 h-10 rounded-sm bg-bko-saffron/20 border border-bko-gold/30 flex items-center justify-center text-bko-gold font-bold text-lg flex-shrink-0"
-                    style={{ fontFamily: "Rosehot, serif" }}
-                  >
-                    {avatar}
-                  </div>
-                  <div>
-                    <p
-                      className="text-sm font-bold text-bko-ivory"
-                      style={{ fontFamily: "Quivert, sans-serif" }}
-                    >
-                      {name}
-                    </p>
-                    <p
-                      className="text-xs text-bko-muted"
-                      style={{ fontFamily: "Quivert, sans-serif" }}
-                    >
+                <span className="testimonial-openquote">&ldquo;</span>
+                <p className="testimonial-text">{review}</p>
+                <div className="testimonial-attribution">
+                  <div className="testimonial-avatar">{initials}</div>
+                  <div style={{ flex: 1 }}>
+                    <span className="testimonial-name">{name}</span>
+                    <span style={{
+                      display: "block",
+                      fontFamily: "var(--ff-body)",
+                      fontSize: "0.75rem",
+                      color: "var(--c-muted)",
+                    }}>
                       Age {age} · {city}
-                    </p>
+                    </span>
                   </div>
-                  <span className="ml-auto badge-traditional text-[0.6rem] py-0.5 px-2">
-                    {lang}
-                  </span>
+                  <span className="testimonial-pill">{lang}</span>
                 </div>
               </motion.div>
             ))}
@@ -693,123 +447,68 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          CTA BAND
-      ══════════════════════════════════════ */}
-      <section className="py-20 relative overflow-hidden">
-        {/* Saffron gradient bg */}
-        <div className="absolute inset-0 bg-gradient-to-r from-bko-crimson/10 via-bko-saffron/10 to-bko-turmeric/10" />
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{ backgroundImage: "url('/images/bg_pattern.png')", backgroundSize: "180px" }}
-        />
+      <SectionDivider />
 
-        <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
-          <h2
-            className="text-5xl text-bko-ivory mb-4"
-            style={{ fontFamily: "Rosehot, serif" }}
-          >
-            Try it yourself{" "}
-            <span
-              style={{
-                background: "linear-gradient(135deg,#E8631A,#D4AF37)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              — free
-            </span>
-          </h2>
-          <p
-            className="text-bko-muted mb-8"
-            style={{ fontFamily: "Quivert, sans-serif" }}
-          >
-            No credit card. No app download. Just speak.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/demo" className="btn-primary px-10 py-4 text-base">
-              <Mic size={18} />
-              Open App Container
+      {/* ════════════════════════════════
+          FOOTER CTA BAND — solid #C1440E
+      ════════════════════════════════ */}
+      <section className="footer-cta">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.45 }}
+        >
+          <h2 className="footer-cta-headline">Try it yourself — free</h2>
+          <p className="footer-cta-sub">No credit card. No app download. Just speak.</p>
+          <div className="footer-cta-btns">
+            <Link href="/demo" className="btn-white">
+              <Mic size={17} /> Open App
             </Link>
-            <Link href="/dashboard" className="btn-secondary px-10 py-4 text-base">
-              Operator Dashboard
-              <ArrowRight size={16} />
+            <Link href="/dashboard" className="btn-ghost-white">
+              Operator Dashboard <ArrowRight size={16} />
             </Link>
           </div>
-        </div>
+        </motion.div>
       </section>
 
-      {/* ══════════════════════════════════════
+      {/* ════════════════
           FOOTER
-      ══════════════════════════════════════ */}
-      <footer className="border-t border-bko-gold/20 bg-bko-surface/60 py-10">
-        {/* Top decorative strip */}
-        <div className="divider-indian max-w-5xl mx-auto px-6" />
-
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+      ════════════════ */}
+      <footer className="site-footer">
+        <div className="site-footer-inner">
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-sm overflow-hidden border border-bko-gold/30">
-              <Image
-                src="/images/logo_bko.png"
-                alt="BolKeOrder"
-                fill
-                className="object-cover"
-              />
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{
+              position: "relative", width: "32px", height: "32px",
+              borderRadius: "3px", overflow: "hidden",
+              border: "1px solid rgba(193,68,14,0.30)", flexShrink: 0,
+            }}>
+              <Image src="/images/logo_bko.png" alt="BolKeOrder" fill style={{ objectFit: "cover" }} />
             </div>
             <div>
-              <span
-                className="font-bold text-bko-gold block text-lg leading-tight"
-                style={{ fontFamily: "Rosehot, serif" }}
-              >
-                BolKeOrder
-              </span>
-              <span className="text-[0.6rem] text-bko-muted tracking-widest uppercase">
-                Voice Commerce · भारत
-              </span>
+              <span className="site-footer-brand">BolKeOrder</span>
+              <span className="site-footer-sub">Voice Commerce · भारत</span>
             </div>
           </div>
 
           {/* Tech badges */}
-          <div className="flex flex-wrap items-center gap-2 justify-center">
-            {TECH.map((tech) => (
-              <span
-                key={tech}
-                className="text-xs bg-bko-elevated border border-bko-gold/15 text-bko-muted px-2.5 py-1 rounded-sm"
-                style={{ fontFamily: "Quivert, sans-serif" }}
-              >
-                {tech}
-              </span>
+          <div className="tech-badges">
+            {TECH.map((t) => (
+              <span key={t} className="tech-badge">{t}</span>
             ))}
           </div>
 
           {/* Links */}
-          <div className="flex items-center gap-4 text-bko-muted text-sm">
-            <a
-              href="#"
-              className="flex items-center gap-1.5 hover:text-bko-turmeric transition-colors"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
-              <Code2 size={14} /> GitHub
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-1.5 hover:text-bko-turmeric transition-colors"
-              style={{ fontFamily: "Quivert, sans-serif" }}
-            >
-              <Mail size={14} /> Contact
-            </a>
+          <div className="site-footer-links">
+            <a href="#"><Code2 size={13} /> GitHub</a>
+            <a href="#"><Mail size={13} /> Contact</a>
           </div>
         </div>
 
-        <p
-          className="text-center text-xs text-bko-dim mt-6"
-          style={{ fontFamily: "Quivert, sans-serif" }}
-        >
-          ✦ Made with ❤️ for Bharat · 2026 AI Hackathon ✦
-        </p>
+        <p className="site-footer-copy">✦ Made with ❤️ for Bharat · 2026 AI Hackathon ✦</p>
       </footer>
+
     </div>
   );
 }
