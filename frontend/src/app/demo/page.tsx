@@ -364,7 +364,7 @@ export default function DemoPage() {
   const total = conv.comparisonResult ? conv.comparisonResult.newTotal : (subtotal + taxes - disc);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#1E2230", fontFamily: "var(--font-poppins), sans-serif" }}>
+    <div className="h-[100dvh] flex flex-col" style={{ background: "#1E2230", fontFamily: "var(--font-poppins), sans-serif" }}>
 
       {/* ── Top Bar ─────────────────────────────────────── */}
       <header
@@ -411,7 +411,7 @@ export default function DemoPage() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
         {/* ════════════════ LEFT: BILL ═══════════════════ */}
-        <div className="w-full lg:w-72 flex flex-col"
+        <div className="w-full lg:w-72 flex flex-col shrink-0 max-h-[45vh] lg:max-h-none lg:border-b-0 border-b border-white/5 "
           style={{ background: "#161925", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
 
           {/* Bill Header */}
