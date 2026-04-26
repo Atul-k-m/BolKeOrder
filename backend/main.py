@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api.routes.custom_llm import router as llm_router
 from config import settings
+
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +13,8 @@ app = FastAPI(
     version="0.1.0",
     description="Voice commerce AI platform backend"
 )
+
+app.include_router(llm_router, prefix="/api/v1")
 
 # CORS Middleware
 origins = [origin.strip() for origin in settings.allowed_origins.split(",")]
