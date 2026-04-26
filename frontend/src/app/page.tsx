@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mic, ArrowRight, Code2, Mail } from "lucide-react";
+import { Mic, ArrowRight, Code2, Mail, Moon, Sun } from "lucide-react";
 
 // ── CSS-only section divider (diamond ornament on 1px line) ──────────────────
 function SectionDivider() {
@@ -138,8 +139,19 @@ const TECH = ["Next.js 14", "FastAPI", "GraphQL", "Qdrant", "Vapi.ai", "GPT-4o"]
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function LandingPage() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
   return (
-    <div style={{ minHeight: "100vh", background: "#F5EDD8", overflowX: "hidden" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      "--c-bg": isDarkMode ? "#1F0C00" : "#F5EDD8",
+      "--c-btn-sec-hover": isDarkMode ? "#C9A84C" : "var(--c-terra)",
+      "--c-footer-text": isDarkMode ? "#C9A84C" : "#1F0C00",
+      "--c-grid-color1": isDarkMode ? "rgba(201, 168, 76, 0.12)" : "rgba(193, 68, 14, 0.04)",
+      "--c-grid-color2": isDarkMode ? "rgba(201, 168, 76, 0.09)" : "rgba(193, 68, 14, 0.03)",
+      background: "var(--c-bg)",
+      overflowX: "hidden" 
+    } as React.CSSProperties}>
 
       {/* ════════════════
           NAVBAR
@@ -156,20 +168,35 @@ export default function LandingPage() {
             </div>
             <div>
               <span className="bko-nav-logo-name">BolKeOrder</span>
-              <span className="bko-nav-logo-sub">Voice Commerce · भारत</span>
+              <span className="bko-nav-logo-sub" style={{ color: isDarkMode ? "#C4A882" : "#0F172A" }}>Voice Commerce · भारत</span>
             </div>
           </Link>
 
           <ul className="bko-nav-links">
-            <li><a href="#how">How it Works</a></li>
-            <li><a href="#platforms">Platforms</a></li>
-            <li><a href="#stories">Stories</a></li>
+            <li><a href="#how" style={{ color: isDarkMode ? "#F5EDD8" : "#1F0C00" }}>How it Works</a></li>
+            <li><a href="#platforms" style={{ color: isDarkMode ? "#F5EDD8" : "#1F0C00" }}>Platforms</a></li>
+            <li><a href="#stories" style={{ color: isDarkMode ? "#F5EDD8" : "#1F0C00" }}>Stories</a></li>
           </ul>
 
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: isDarkMode ? "#F5EDD8" : "#1F0C00",
+              }}
+              title="Toggle Theme"
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
             <Link
               href="/dashboard"
-              style={{ fontFamily: "var(--ff-body)", fontSize: "0.875rem", color: "var(--c-muted)", textDecoration: "none" }}
+              style={{ fontFamily: "var(--ff-body)", fontSize: "0.875rem", color: isDarkMode ? "#F5EDD8" : "#1F0C00", textDecoration: "none" }}
             >
               Sign in
             </Link>
@@ -201,13 +228,13 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <span className="hero-eyebrow">🇮🇳  Voice Commerce for Bharat</span>
+          <span className="hero-eyebrow" style={{ color: isDarkMode ? "#F5EDD8" : "#1F0C00" }}>🇮🇳  Voice Commerce for Bharat</span>
 
-          <h1 className="hero-headline">
+          <h1 className="hero-headline" >
             बोलो, हम<br />order करेंगे
           </h1>
 
-          <p className="hero-sub">
+          <p className="hero-sub" style={{ color: isDarkMode ? "#C4A882" : "#0F172A" }}>
             Just say it. We&apos;ll handle the rest. Voice-first ordering for every
             Indian — Hindi, Kannada, Tamil, Telugu, and more.
           </p>
@@ -216,12 +243,12 @@ export default function LandingPage() {
             <Link href="/demo" className="btn-primary">
               <Mic size={16} /> Try Voice Demo
             </Link>
-            <Link href="/dashboard" className="btn-secondary">
+            <Link href="/dashboard" className="btn-secondary" style={{ color: isDarkMode ? "#D4AF37" : "#1F0C00" }}>
               Operator Dashboard <ArrowRight size={16} />
             </Link>
           </div>
 
-          <div className="hero-social-proof">
+          <div className="hero-social-proof" style={{ color: isDarkMode ? "#C4A882" : "#1F0C00" }}>
             <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Waveform />
               <em>&ldquo;Ek chicken biryani aur do roti mangwa do…&rdquo;</em>
@@ -252,13 +279,13 @@ export default function LandingPage() {
             {STEPS.map(({ Icon, numeral, hindi, sublabel, desc }, i) => (
               <motion.div
                 key={numeral}
-                className="step-card"
+                className={`step-card ${i % 2 === 0 ? "odd" : "even"}`}
                 initial={{ opacity: 0, y: 36 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.13, duration: 0.4 }}
                 viewport={{ once: true }}
               >
-                <div className="step-numeral">{numeral}</div>
+                {/* <div className="step-numeral">{numeral}</div> */}
                 <div className="step-icon-wrapper">
                   <div className="step-icon-circle">
                     <Icon />
@@ -314,7 +341,7 @@ export default function LandingPage() {
               Technology that cares<br />
               <em>for every generation</em>
             </h2>
-            <p className="dadi-body">
+            <p className="dadi-body" style={{ color: isDarkMode ? "#C4A882" : "#1F0C00" }}>
               India has over 138 million senior citizens. Many own a basic phone but
               struggle with modern apps. BolKeOrder bridges this gap — just one call
               in their mother tongue, and food comes home within minutes.
@@ -327,8 +354,8 @@ export default function LandingPage() {
                 { value: "30s",  label: "To Order"        },
               ].map(({ value, label }) => (
                 <div key={label} className="stat-block">
-                  <span className="stat-value">{value}</span>
-                  <span className="stat-label">{label}</span>
+                  <span className="stat-value" style={{ color: isDarkMode ? "#C9A84C" : "#1F0C00" }}>{value}</span>
+                  <span className="stat-label" style={{ color: isDarkMode ? "#C9A84C" : "#1F0C00" }}>{label}</span>
                 </div>
               ))}
             </div>
@@ -354,7 +381,7 @@ export default function LandingPage() {
             transition={{ duration: 0.4 }}
           >
             <h2 className="section-heading">Your Favourite Apps</h2>
-            <p className="section-sub">
+            <p className="section-sub" style={{ color: isDarkMode ? "#C4A882" : "#1F0C00" }}>
               Ordering via mock adapters today. Real integrations coming very soon.
             </p>
           </motion.div>
@@ -389,7 +416,7 @@ export default function LandingPage() {
           >
             {PLATFORMS.map(({ name, emoji, color }) => (
               <div key={name} className="platform-logo-item">
-                <span className="emoji">{emoji}</span>
+                {/* <span className="emoji">{emoji}</span> */}
                 <span style={{ color }}>{name}</span>
               </div>
             ))}
@@ -411,7 +438,7 @@ export default function LandingPage() {
             transition={{ duration: 0.4 }}
           >
             <h2 className="section-heading">Real Stories</h2>
-            <p className="section-sub">From the people we built this for.</p>
+            <p className="section-sub" style={{ color: isDarkMode ? "#C4A882" : "#1F0C00" }}>From the people we built this for.</p>
           </motion.div>
 
           <div className="testimonials-grid">
@@ -439,7 +466,7 @@ export default function LandingPage() {
                       Age {age} · {city}
                     </span>
                   </div>
-                  <span className="testimonial-pill">{lang}</span>
+                  <span className="testimonial-pill" style={{ color: isDarkMode ? "#F5EDD8" : "#1F0C00" }}>{lang}</span>
                 </div>
               </motion.div>
             ))}
@@ -492,12 +519,12 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Tech badges */}
+          {/* Tech badges
           <div className="tech-badges">
             {TECH.map((t) => (
               <span key={t} className="tech-badge">{t}</span>
             ))}
-          </div>
+          </div> */}
 
           {/* Links */}
           <div className="site-footer-links">
@@ -506,7 +533,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <p className="site-footer-copy">✦ Made with ❤️ for Bharat · 2026 AI Hackathon ✦</p>
+        <p className="site-footer-copy">✦ Made with ❤️ for Bharat ✦</p>
       </footer>
 
     </div>

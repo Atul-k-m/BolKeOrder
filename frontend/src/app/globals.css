@@ -68,7 +68,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(245, 237, 216, 0.92);
+  background: color-mix(in srgb, var(--c-bg) 92%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--c-border);
@@ -153,8 +153,8 @@ body {
   transition: border-color 0.18s, color 0.18s, transform 0.15s;
 }
 .btn-secondary:hover {
-  border-color: var(--c-terra);
-  color: var(--c-terra);
+  border-color: var(--c-btn-sec-hover, var(--c-terra));
+  color: var(--c-btn-sec-hover, var(--c-terra));
   transform: translateY(-1px);
 }
 
@@ -357,7 +357,6 @@ body {
   .steps-grid { grid-template-columns: 1fr; }
 }
 .step-card {
-  background: var(--c-surface);
   border: 1.5px solid rgba(193, 68, 14, 0.4);
   border-radius: 12px;
   padding: 28px;
@@ -367,6 +366,8 @@ body {
   transition: transform 0.2s;
 }
 .step-card:hover { transform: translateY(-2px); }
+.step-card.odd  { background: #FDF0DC; }
+.step-card.even { background: var(--c-surface); }
 
 /* Watermark step numeral */
 .step-numeral {
@@ -544,15 +545,15 @@ body {
       90deg,
       transparent 0px,
       transparent 48px,
-      rgba(193,68,14,0.04) 48px,
-      rgba(193,68,14,0.04) 50px
+      var(--c-grid-color1, rgba(193, 68, 14, 0.04)) 48px,
+      var(--c-grid-color1, rgba(193, 68, 14, 0.04)) 50px
     ),
     repeating-linear-gradient(
       0deg,
       transparent 0px,
       transparent 48px,
-      rgba(193,68,14,0.03) 48px,
-      rgba(193,68,14,0.03) 50px
+      var(--c-grid-color2, rgba(193, 68, 14, 0.03)) 48px,
+      var(--c-grid-color2, rgba(193, 68, 14, 0.03)) 50px
     );
 }
 .platforms-inner {
@@ -716,8 +717,8 @@ body {
    FOOTER
 ═══════════════════════════════════════════════════════════ */
 .site-footer {
-  background: var(--c-surface);
-  border-top: 1px solid var(--c-border);
+  background: var(--c-bg);
+  border-top: none;
   padding: 32px 24px;
 }
 .site-footer-inner {
@@ -733,11 +734,11 @@ body {
   font-family: var(--ff-display);
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--c-terra);
+  color: var(--c-footer-text, #1F0C00);
 }
 .site-footer-sub {
   font-size: 0.6875rem;
-  color: var(--c-dim);
+  color: var(--c-footer-text, #1F0C00);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   display: block;
@@ -749,7 +750,7 @@ body {
 .site-footer-links a {
   font-family: var(--ff-body);
   font-size: 0.8125rem;
-  color: var(--c-muted);
+  color: var(--c-footer-text, #1F0C00);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -761,7 +762,7 @@ body {
   width: 100%;
   text-align: center;
   font-size: 0.75rem;
-  color: var(--c-dim);
+  color: var(--c-footer-text, #1F0C00);
   margin-top: 12px;
 }
 .tech-badges {
