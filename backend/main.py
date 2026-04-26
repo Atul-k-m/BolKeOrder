@@ -34,6 +34,9 @@ from graphql_schema.schema import schema
 graphql_app = GraphQLRouter(schema)
 app.include_router(graphql_app, prefix="/graphql")
 
+from api.routes import chat_completions
+app.include_router(chat_completions.router)
+
 from api.routes import vapi_webhooks
 
 # Mount Webhooks

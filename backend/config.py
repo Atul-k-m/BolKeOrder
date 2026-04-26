@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o"
     gemini_api_key: Optional[str] = None
+    minimax_api_key: Optional[str] = None
 
     # Qdrant
     qdrant_url: str = "http://localhost:6333"
